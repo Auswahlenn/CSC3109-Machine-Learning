@@ -20,32 +20,71 @@ results/    # per-model JSON + confusion-matrix PNG + best checkpoint
 train.py    # shared training entrypoint (--model selects the member's model)
 ```
 
-## Setup
+## For team members — how to test your own model
 
-```bash
+You never run the files in `shared/` directly; they are libraries that
+`train.py` imports for you. You only write **one** file (your model) and run
+**one** command.
+
+### 1. One-time setup
+
+```powershell
+# from the repo root: C:\Github\CSC3109-Machine-Learning
+py -3.12 -m venv venv           # MUST be Python 3.12 — TensorFlow has no 3.13/3.14 wheel
+.\venv\Scripts\Activate.ps1     # prompt should now show (venv)
 pip install -r requirements.txt
 ```
 
-## Run
+> If a `venv\` from an older Python already exists, delete it first:
+> `Remove-Item -Recurse -Force venv`.
 
-```bash
-python train.py --model example_resnet50
-python train.py --model <yourname> --epochs 30 --patience 5
+### 2. Write your model
+
+Copy the example (don't edit the original) and change only the backbone:
+
+```powershell
+copy models\example_resnet50.py models\<yourname>.py
 ```
 
-## Adding your model
-
-Copy `models/example_resnet50.py` to `models/<yourname>.py` and expose:
+In `models\<yourname>.py`, swap the backbone and its matching
+`preprocess_input` (e.g. `EfficientNetB0`, `MobileNetV2`). Keep the function
+signature exactly:
 
 ```python
-def build_model(num_classes: int, augmentation: tf.keras.Sequential) -> tf.keras.Model
+def build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
 ```
 
-returning a **compiled** model that stacks, in order: the shared `augmentation`
-(passed in), your backbone's own `preprocess_input`, the pretrained backbone,
-and a new softmax head. The shared loader returns **raw [0, 255] pixels** on
-purpose — apply your backbone's `preprocess_input` inside your model so every
-member can use a different backbone while sharing identical data and evaluation.
+It must return a **compiled** model that stacks, in order: the shared
+`augmentation` (passed in), your backbone's own `preprocess_input`, the
+pretrained backbone, and a new softmax head. The shared loader returns
+**raw [0, 255] pixels** on purpose — applying your backbone's `preprocess_input`
+inside your model is what lets every member use a different backbone while
+sharing identical data and evaluation.
 
-> The `shared/` files are frozen: editing them changes everyone's results and
-> invalidates prior numbers. Coordinate with the team before touching them.
+### 3. Run it
+
+From the repo root, with the venv active. Use the filename **without** `.py`
+or the `models\` prefix:
+
+```powershell
+python train.py --model <yourname>
+# optional: python train.py --model <yourname> --epochs 30 --patience 5
+```
+
+### 4. Collect your results
+
+Three files appear in `results\`, named after your model:
+
+| File | Contents |
+|------|----------|
+| `<yourname>.json` | accuracy, precision, recall, F1 (macro + per-class) |
+| `<yourname>_confusion_matrix.png` | confusion matrix |
+| `<yourname>_best.keras` | best checkpoint (highest val accuracy) |
+
+### Rules (so everyone's numbers are comparable)
+
+- **Don't edit anything in `shared/`** — it's frozen; changing it invalidates
+  everyone's prior results.
+- **Don't re-split the data** — the `set 23` / `val 23` split is fixed.
+- Only your `models\<yourname>.py` should differ between members.
+- Always activate the venv (`.\venv\Scripts\Activate.ps1`) before running.
