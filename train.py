@@ -22,8 +22,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib
+import importlib.util
 import os
+from pathlib import Path
+from types import ModuleType
 
 from tensorflow import keras
 
@@ -31,6 +33,39 @@ from shared import config
 from shared.augment import get_augmentation
 from shared.data import get_datasets
 from shared.evaluate import evaluate
+
+
+def load_model_module(name: str) -> tuple[str, ModuleType]:
+    """Find and import a member's model file by name, anywhere under models/.
+
+    Accepts a bare name (``example_resnet50``) and ignores any accidental path
+    prefix or extension (``./models/example_resnet50``, ``example_resnet50.py``),
+    searching ``models/`` recursively so per-member subfolders work too.
+
+    Returns:
+        ``(stem, module)`` where ``stem`` is the clean model name used for
+        output filenames, and ``module`` is the imported module.
+    """
+    stem = Path(name).stem  # strip any folders + .py the user included
+    models_dir = Path(__file__).resolve().parent / "models"
+    matches = [p for p in models_dir.rglob(f"{stem}.py") if p.name != "__init__.py"]
+
+    if not matches:
+        raise FileNotFoundError(
+            f"No model file '{stem}.py' found under models/. "
+            f"Pass just the name, e.g. --model {stem}"
+        )
+    if len(matches) > 1:
+        locations = ", ".join(str(p.relative_to(models_dir.parent)) for p in matches)
+        raise ValueError(
+            f"Multiple model files named '{stem}.py' found ({locations}); "
+            "rename one so the model name is unique."
+        )
+
+    spec = importlib.util.spec_from_file_location(stem, matches[0])
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return stem, module
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,10 +103,10 @@ def main() -> None:
     augmentation = get_augmentation()
 
     # Dynamically load the selected member's model module and build the model.
-    model_module = importlib.import_module(f"models.{args.model}")
+    model_name, model_module = load_model_module(args.model)
     if not hasattr(model_module, "build_model"):
         raise AttributeError(
-            f"models/{args.model}.py must expose build_model(num_classes, augmentation)."
+            f"{model_name}.py must expose build_model(num_classes, augmentation)."
         )
     model: keras.Model = model_module.build_model(
         num_classes=config.NUM_CLASSES, augmentation=augmentation
@@ -81,7 +116,7 @@ def main() -> None:
     # Best model (by val_accuracy) is checkpointed so evaluation runs on the
     # best epoch, not the last one.
     os.makedirs(config.RESULTS_DIR, exist_ok=True)
-    checkpoint_path = os.path.join(config.RESULTS_DIR, f"{args.model}_best.keras")
+    checkpoint_path = os.path.join(config.RESULTS_DIR, f"{model_name}_best.keras")
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             checkpoint_path,
@@ -110,11 +145,11 @@ def main() -> None:
     # even if restore_best_weights behavior changes.
     best_model = keras.models.load_model(checkpoint_path)
 
-    results = evaluate(best_model, val_ds, model_name=args.model)
+    results = evaluate(best_model, val_ds, model_name=model_name)
     print("\n=== Validation results ===")
     print(f"Accuracy:    {results['accuracy']:.4f}")
     print(f"Macro F1:    {results['macro']['f1']:.4f}")
-    print(f"Saved JSON:  {os.path.join(config.RESULTS_DIR, args.model + '.json')}")
+    print(f"Saved JSON:  {os.path.join(config.RESULTS_DIR, model_name + '.json')}")
 
 
 if __name__ == "__main__":
