@@ -1,0 +1,72 @@
+\documentclass[11pt,twoside,a4paper]{article}
+%NOTE: This report format is 
+
+\newcommand{\reporttitle}{Proposal: {Your title}}
+\newcommand{\reportauthorOne}{Student 1}
+\newcommand{\cidOne}{your id number}
+\newcommand{\reportauthorTwo}{Student 2}
+\newcommand{\cidTwo}{your id number}
+\newcommand{\reporttype}{Coursework}
+\bibliographystyle{plain}
+
+% include files that load packages and define macros
+\input{includes} % various packages needed for maths etc.
+\input{notation} % short-hand notation and macros
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+% front page
+\input{titlepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% table of content
+%If a table of content is needed, simply uncomment the following lines
+%\tableofcontents
+%\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main document
+\section*{Note}
+Please write up a 2-3 page proposal (excluding references) based on the following guidelines. 
+
+\section{Project Idea and Motivation}
+\begin{itemize}
+    \item \emph{Describe the core idea of your mobile application and specify the target user demographic.}
+    \item \emph{Detail the inspiration behind your project idea, whether it be a gap in existing applications, a particular problem, or recent advancements in mobile technology.}
+    \item \emph{Discuss the societal and individual impacts of your application. Explain how it will improve outcomes, enhance  or contribute to future benefits.}
+\end{itemize}
+
+\section{Related Work}
+\begin{itemize}
+    \item \emph{Identify and list at least three related works, such as other mobile apps, open source GitHub projects, or methodologies from academic papers. This is how to cite \cite{Lohse2003}}
+    \item \emph{For each, describe key features and functionalities, and how these relate to your proposed project.}
+    \item \emph{Explain how your application will differ from these existing solutions and highlight any improvements or additional features your application will offer.}
+\end{itemize}
+
+\section{Software Architecture Design}
+\begin{itemize}
+    \item \emph{Describe the structure and
+components of the application, design justifications and decisions made. Main architecture diagram can be included here, the rest in the appendix}
+    \item \emph{Select three out of the five key aspects of mobile application development: sensors, communication, multimedia, computing, and AI.}
+    \item \emph{Describe how each of these aspects will be integrated into your application to enhance functionality and user experience.}
+\end{itemize}
+
+\section{Implementation Plan}
+\begin{itemize}
+    \item \emph{Provide an outline what your team plans to accomplish each sprint.}
+    \item \emph{Use the GitHub projects, issues and kanban board to organize your product and sprint backlog, provide screenshots in the appendix.}    
+    \item \emph{Consider including a Gantt chart to visually represent these milestones. }
+\end{itemize}
+
+\newpage
+\section*{Appendix}
+Put main diagrams in the proposal, extra diagrams here.
+\newpage
+\bibliography{mybib}
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

@@ -1,0 +1,112 @@
+\documentclass[11pt,twoside,a4paper]{article}
+%NOTE: This report format is 
+
+\newcommand{\reporttitle}{Final Report: {Your title}}
+\newcommand{\reportauthorOne}{Student 1}
+\newcommand{\cidOne}{your id number}
+\newcommand{\reportauthorTwo}{Student 2}
+\newcommand{\cidTwo}{your id number}
+\newcommand{\reporttype}{Coursework}
+\bibliographystyle{plain}
+
+% include files that load packages and define macros
+\input{includes} % various packages needed for maths etc.
+\input{notation} % short-hand notation and macros
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+% front page
+\input{titlepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% table of content
+%If a table of content is needed, simply uncomment the following lines
+%\tableofcontents
+%\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main document
+\section*{Note}
+\emph{The final report should expand upon the initial proposal, including detailed descriptions of the project's development process, architectural design, implementation details, and testing and evaluation, alongside the final outcomes. The report should highlight the project's achievements, innovations, and the impact of the application. 
+
+Page limit is max 25 pages excluding the appendix, due Thursday Apr 2, 2026 2359 hrs.
+
+The suggested structure is as follows:}
+
+\section{Introduction}
+\begin{itemize}
+    \item \emph{\textbf{Project Overview:} Briefly reiterate the idea of your mobile application and its target users.}
+    \item \emph{\textbf{Motivation and Background:} Provide an enhanced motivation for the project with additional details and new developments that have influenced the project since the initial proposal.}
+    \item \emph{\textbf{Objectives:} Clearly state the specific goals of the application and the challenges it addresses.}
+    \item \emph{\textbf{Impact Discussion:} Expand on the potential societal and individual impacts, supplemented by preliminary feedback or observations.}
+\end{itemize}
+
+\section{Literature Review (or Related Work)}
+\begin{itemize}
+    \item \emph{Expand on the initial review of similar work. Include a detailed analysis of at least three relevant existing works. This is an example citation \cite{Lohse2003}}
+    \item \emph{Discuss their key features, limitations, and how your application proposes improvements.}
+\end{itemize}
+
+\section{System Architecture and Design}
+\begin{itemize}
+    \item \emph{\textbf{Architecture Overview:} Describe the overall architecture, including both hardware and software components.}
+    \item \emph{\textbf{Features:} Description of the main features within the application.} 
+    \item \emph{\textbf{Design Details:} Elaborate on the design choices and their alignment with the project objectives, including the integration of front-end, back-end, and database components.}
+    \item \emph{Describe the data flow through the system, particularly how it integrates mobile sensors, communication, and AI.}
+\end{itemize}
+
+\section{Implementation and Development}
+\begin{itemize}
+    \item \emph{Discuss the integration and improvements of mobile sensors, communication, computing, and AI.}
+    \item \emph{Present the technologies used and any enhancements made to improve functionality or efficiency.}
+    \item \emph{Main screenshots or diagrams of the app’s user interface and features, the rest go into appendix}
+\end{itemize}
+
+\section{{Project Management and Planning}}
+\begin{itemize}
+    \item \emph{\textbf{Agile Development Process:} Summarize the agile development practices your team employed.}
+
+    \item \emph{\textbf{User Stories:} How the requirements were transformed to the user stories, description of the user stories and how they were selected. Summary information on the team’s product backlog and sprint backlogs}
+    
+    \item \emph{\textbf{Individual Contributions:} Detail each team member's specific contributions to the project.}    
+    \item \emph{\textbf{Branching Model:} Summarize the team workflow and a description of the team’s branching model}    
+\end{itemize}
+
+\section{Testing and Evaluation}
+\begin{itemize}
+    \item \emph{\textbf{Testing Methodology:} Description of any testing methods or testing procedures in relation to the application's features.}
+    \item \emph{\textbf{Unit and Integration Tests:} Description of any implemented unit and integration tests for the project}
+    \item \emph{\textbf{Experimental Evaluation:} Present any and analyze any experimental results demonstrating the application’s performance against its objectives. Describe metrics used. (Optional)}
+\end{itemize}
+
+\section{Conclusion}
+\begin{itemize}
+    \item \emph{Highlight innovations, significant breakthroughs, and summarize the overall achievements of the project.}
+    \item \emph{Discuss potential future directions for further development of the application.}
+\end{itemize}
+
+\vfill
+\section*{Appendices}
+\begin{itemize}
+    \item \emph{Additional screenshots or diagrams of the app’s user interface and features}
+    \item \emph{Entire product and sprint backlog listing}
+    \item \emph{Review of each sprint’s progress, review and retrospective}
+    \item \emph{Any additional class diagrams, architecture diagrams, use case diagrams}    
+\end{itemize}
+
+\section*{GenAI Declaration}
+\begin{itemize}
+    \item \emph{\textbf{Declaration of Tools and Resources:} List all tools and resources used, including any AI tools such as ChatGPT, Claude Code or Codex, and acknowledge any external support received.}
+    \item \emph{\textbf{Output Usage:} Indicate what the output of genAI was used for.}    
+\end{itemize}
+
+\newpage
+\bibliography{mybib}
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
