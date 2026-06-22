@@ -56,6 +56,20 @@ The complete experiment manifest is
   result artifact from another architecture. Cross-architecture performance
   comparison cannot be verified from the current repository.
 
+## Final held-out result
+
+- Accuracy: 0.9625.
+- Macro precision: 0.9632.
+- Macro recall: 0.9625.
+- Macro F1: 0.9625.
+- Strongest held-out per-class F1: `coastal_mansion` at 0.9798.
+- Weakest held-out per-class F1: `dense_residential` at 0.9447.
+- The largest held-out confusion was four `dense_residential` images predicted
+  as `sparse_residential`.
+
+The final checkpoint is checksum-tracked in
+`results/efficientnet_b0_final_manifest.json`.
+
 ## Reproduce training
 
 From PowerShell:
@@ -87,7 +101,7 @@ Fixed class order:
 3. `nursing_home`
 4. `sparse_residential`
 
-## Expected final artifacts
+## Final artifacts
 
 - `results/efficientnet_b0_final_best.keras`
 - `results/efficientnet_b0_final.json`
@@ -96,3 +110,4 @@ Fixed class order:
 - `results/efficientnet_b0_final_tuning_confusion_matrix.png`
 - `results/efficientnet_b0_final_history.json`
 - `results/efficientnet_b0_final_run.json`
+- `results/efficientnet_b0_final_manifest.json`
