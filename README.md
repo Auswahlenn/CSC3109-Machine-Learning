@@ -72,6 +72,14 @@ python train.py --model <yourname> --run-name <unique-run-name>
 # Final selected run only: add --evaluate-held-out --run-type final
 ```
 
+The EfficientNet-B0 controlled suite runs inside the configured WSL2 GPU
+environment:
+
+```powershell
+wsl.exe --distribution Ubuntu --exec /bin/bash -lc `
+  'cd /mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning && bash scripts/run_efficientnet_experiments.sh'
+```
+
 ### 4. Collect your results
 
 Three files appear in `results\`, named after your model:
