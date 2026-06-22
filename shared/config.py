@@ -51,10 +51,23 @@ CLASS_NAMES: list[str] = [
 # (training, 700 images/class) and "val 23" (held-out validation,
 # 100 images/class).
 _REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_DATA_DIR: str = os.path.join(_REPO_ROOT, "data")
+_DATA_DIR: str = os.environ.get(
+    "CSC3109_DATA_DIR", os.path.join(_REPO_ROOT, "dataset")
+)
 
 TRAIN_DIR: str = os.path.join(_DATA_DIR, "set 23")
 VAL_DIR: str = os.path.join(_DATA_DIR, "val 23")
+
+# Derive tuning data only from the professor-provided training split. The
+# separate validation directory remains evaluation-only.
+TUNING_SPLIT: float = 0.15
+
+# Exact byte-identical images assigned to conflicting classes. The source
+# files remain untouched and are excluded logically by the shared loader.
+EXCLUDED_TRAIN_FILES: tuple[str, ...] = (
+    "coastal_mansion/coastalmansion029.jpg",
+    "sparse_residential/sparseresidential021.jpg",
+)
 
 # Where evaluate.py writes per-model JSON + confusion-matrix PNG.
 RESULTS_DIR: str = os.path.join(_REPO_ROOT, "results")
