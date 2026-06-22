@@ -1,0 +1,11 @@
+.git
+.venv
+dataset
+docs
+eda.html
+eda.ipynb
+results/*
+!results/efficientnet_b0_final_best.keras
+!results/efficientnet_b0_final_manifest.json
+__pycache__
+*.pyc
