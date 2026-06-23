@@ -37,3 +37,18 @@ curl -X POST http://localhost:8000/predict \
 
 The application verifies the model SHA-256 hash against the committed manifest
 before accepting requests.
+
+## Verified container
+
+Verification completed on 23 June 2026 with Docker Desktop 4.79.0 and Docker
+Engine 29.5.3:
+
+- Image: `csc3109-efficientnet-b0:1.0`
+- Platform: Linux AMD64
+- Image size: 744,094,351 bytes
+- Runtime identity: `appuser`, UID/GID 10001
+- Container health: `healthy`
+- HTTP 200: `/`, `/health`, `/docs`, and `/predict`
+
+The machine-readable evidence is stored in
+`results/efficientnet_b0_deployment_verification.json`.
