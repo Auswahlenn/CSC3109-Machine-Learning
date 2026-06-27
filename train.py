@@ -89,6 +89,13 @@ def parse_args() -> argparse.Namespace:
         default=5,
         help="EarlyStopping patience (epochs without val_accuracy improvement).",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Override the batch size (default: config.BATCH_SIZE). Use a smaller "
+        "value if a model runs out of GPU memory; does not affect comparability.",
+    )
     return parser.parse_args()
 
 
@@ -99,7 +106,7 @@ def main() -> None:
     config.set_seed()
 
     # Shared data + augmentation (identical for every member).
-    train_ds, val_ds = get_datasets()
+    train_ds, val_ds = get_datasets(batch_size=args.batch_size)
     augmentation = get_augmentation()
 
     # Dynamically load the selected member's model module and build the model.
