@@ -66,6 +66,13 @@ def parse_args() -> argparse.Namespace:
         choices=("smoke", "experiment", "final"),
         default="experiment",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Override the batch size (default: config.BATCH_SIZE). Use a smaller "
+        "value if a model runs out of GPU memory; does not affect comparability.",
+    )
     return parser.parse_args()
 
 
@@ -113,6 +120,9 @@ def main() -> None:
         raise ValueError("patience must be non-negative")
 
     config.set_seed()
+
+    # Shared data + augmentation (identical for every member).
+    train_ds, val_ds = get_datasets(batch_size=args.batch_size)
     train_ds, tuning_ds = get_training_datasets()
     augmentation = get_augmentation()
 

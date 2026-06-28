@@ -20,6 +20,40 @@ from . import config
 
 LabeledPath = tuple[str, int]
 
+def get_datasets(batch_size: int | None = None) -> tuple[tf.data.Dataset, tf.data.Dataset]:
+    """Load the fixed train and validation datasets.
+
+    The train/validation split is fixed by the professor (separate directories),
+    so this function NEVER re-splits -- it loads each directory as-is.
+
+    Args:
+        batch_size: Optional override for the batch size. Defaults to
+            ``config.BATCH_SIZE``. This exists only so members with limited GPU
+            memory can fit large models -- it does NOT affect the data, labels,
+            split, or evaluation, so results remain comparable. Leaving it
+            ``None`` preserves the original shared behaviour.
+
+    Returns:
+        A ``(train_ds, val_ds)`` tuple of batched ``tf.data.Dataset`` objects.
+        Each element is ``(images, labels)`` where ``images`` are RAW float32
+        pixels in ``[0, 255]`` of shape ``(batch, IMAGE_SIZE, IMAGE_SIZE, 3)``
+        and ``labels`` are one-hot vectors of shape ``(batch, NUM_CLASSES)``
+        (``label_mode="categorical"``).
+
+        Train is shuffled (with the fixed seed); val is NOT shuffled so that the
+        prediction order matches the label order in evaluate.py.
+    """
+    batch_size = batch_size or config.BATCH_SIZE
+
+    train_ds = keras.utils.image_dataset_from_directory(
+        config.TRAIN_DIR,
+        labels="inferred",
+        label_mode="categorical",
+        class_names=config.CLASS_NAMES,  # pin label order to the shared contract
+        image_size=(config.IMAGE_SIZE, config.IMAGE_SIZE),
+        batch_size=batch_size,
+        shuffle=True,
+        seed=config.SEED,
 
 def _collect_labeled_paths(
     root: str, excluded_relative_paths: Iterable[str] = ()
@@ -103,6 +137,14 @@ def _build_dataset(
     return dataset.batch(config.BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 
+    val_ds = keras.utils.image_dataset_from_directory(
+        config.VAL_DIR,
+        labels="inferred",
+        label_mode="categorical",
+        class_names=config.CLASS_NAMES,
+        image_size=(config.IMAGE_SIZE, config.IMAGE_SIZE),
+        batch_size=batch_size,
+        shuffle=False,  # keep deterministic order for evaluation
 def get_training_datasets() -> tuple[tf.data.Dataset, tf.data.Dataset]:
     """Return deterministic training and internal tuning datasets."""
     training_paths, tuning_paths = _split_training_paths()
