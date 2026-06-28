@@ -52,7 +52,7 @@ CLASS_NAMES: list[str] = [
 # 100 images/class).
 _REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DATA_DIR: str = os.environ.get(
-    "CSC3109_DATA_DIR", os.path.join(_REPO_ROOT, "dataset")
+    "CSC3109_DATA_DIR", os.path.join(_REPO_ROOT, "data")
 )
 
 TRAIN_DIR: str = os.path.join(_DATA_DIR, "set 23")
