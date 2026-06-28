@@ -1,0 +1,60 @@
+{
+  "run_name": "efficientnet_b0_baseline",
+  "run_type": "experiment",
+  "model_name": "efficientnet_b0",
+  "git_commit": "19df940929292343270bbc4381c5e48729a5bd7b",
+  "seed": 42,
+  "image_size": 224,
+  "batch_size": 32,
+  "epochs_requested": 15,
+  "epochs_completed": 13,
+  "patience": 3,
+  "best_epoch": 10,
+  "duration_seconds": 124.83609653099984,
+  "model_config": {
+    "dropout": 0.3,
+    "learning_rate": 0.001
+  },
+  "total_parameters": 4054695,
+  "trainable_parameters": 5124,
+  "split_counts": {
+    "training": {
+      "total": 2378,
+      "per_class": {
+        "coastal_mansion": 594,
+        "dense_residential": 595,
+        "nursing_home": 595,
+        "sparse_residential": 594
+      }
+    },
+    "tuning": {
+      "total": 420,
+      "per_class": {
+        "coastal_mansion": 105,
+        "dense_residential": 105,
+        "nursing_home": 105,
+        "sparse_residential": 105
+      }
+    },
+    "held_out": {
+      "total": 400,
+      "per_class": {
+        "coastal_mansion": 100,
+        "dense_residential": 100,
+        "nursing_home": 100,
+        "sparse_residential": 100
+      }
+    },
+    "excluded_training_files": [
+      "coastal_mansion/coastalmansion029.jpg",
+      "sparse_residential/sparseresidential021.jpg"
+    ]
+  },
+  "tensorflow_version": "2.21.0",
+  "gpus": [
+    "/physical_device:GPU:0"
+  ],
+  "checkpoint": "/mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning/results/efficientnet_b0_baseline_best.keras",
+  "tuning_metrics_file": "efficientnet_b0_baseline_tuning.json",
+  "held_out_metrics_file": null
+}

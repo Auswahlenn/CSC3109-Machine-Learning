@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Linux/WSL CUDA libraries matched to the installed TensorFlow release.
+tensorflow[and-cuda]>=2.15

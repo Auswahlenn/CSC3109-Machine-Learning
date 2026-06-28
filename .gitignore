@@ -219,7 +219,4 @@ __marimo__/
 
 # data files
 data/
-
-# trained model checkpoints (too large for git; share via GitHub Releases)
-*.keras
-*.h5
+dataset/
