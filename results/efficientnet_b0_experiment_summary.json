@@ -1,0 +1,68 @@
+{
+  "selection_split": "internal_tuning",
+  "selection_metric": "macro_f1",
+  "held_out_used_for_selection": false,
+  "selected_run": "efficientnet_b0_baseline",
+  "experiments": [
+    {
+      "run_name": "efficientnet_b0_baseline",
+      "dropout": 0.3,
+      "learning_rate": 0.001,
+      "epochs_completed": 13,
+      "best_epoch": 10,
+      "duration_seconds": 124.83609653099984,
+      "tuning_accuracy": 0.9642857142857143,
+      "tuning_macro_f1": 0.9645697487769098,
+      "per_class_f1": {
+        "coastal_mansion": 0.9459459459459459,
+        "dense_residential": 0.9758454106280193,
+        "nursing_home": 0.9855072463768116,
+        "sparse_residential": 0.9509803921568627
+      },
+      "run_metadata": "efficientnet_b0_baseline_run.json",
+      "history": "efficientnet_b0_baseline_history.json",
+      "tuning_metrics": "efficientnet_b0_baseline_tuning.json",
+      "confusion_matrix": "efficientnet_b0_baseline_tuning_confusion_matrix.png"
+    },
+    {
+      "run_name": "efficientnet_b0_drop04",
+      "dropout": 0.4,
+      "learning_rate": 0.001,
+      "epochs_completed": 14,
+      "best_epoch": 11,
+      "duration_seconds": 136.5933592020001,
+      "tuning_accuracy": 0.9619047619047619,
+      "tuning_macro_f1": 0.9621423388199517,
+      "per_class_f1": {
+        "coastal_mansion": 0.9459459459459459,
+        "dense_residential": 0.970873786407767,
+        "nursing_home": 0.9807692307692307,
+        "sparse_residential": 0.9509803921568627
+      },
+      "run_metadata": "efficientnet_b0_drop04_run.json",
+      "history": "efficientnet_b0_drop04_history.json",
+      "tuning_metrics": "efficientnet_b0_drop04_tuning.json",
+      "confusion_matrix": "efficientnet_b0_drop04_tuning_confusion_matrix.png"
+    },
+    {
+      "run_name": "efficientnet_b0_lr3e4",
+      "dropout": 0.3,
+      "learning_rate": 0.0003,
+      "epochs_completed": 12,
+      "best_epoch": 9,
+      "duration_seconds": 118.71259575100021,
+      "tuning_accuracy": 0.9404761904761905,
+      "tuning_macro_f1": 0.9406273257190062,
+      "per_class_f1": {
+        "coastal_mansion": 0.9116279069767442,
+        "dense_residential": 0.9569377990430622,
+        "nursing_home": 0.9619047619047619,
+        "sparse_residential": 0.9320388349514563
+      },
+      "run_metadata": "efficientnet_b0_lr3e4_run.json",
+      "history": "efficientnet_b0_lr3e4_history.json",
+      "tuning_metrics": "efficientnet_b0_lr3e4_tuning.json",
+      "confusion_matrix": "efficientnet_b0_lr3e4_tuning_confusion_matrix.png"
+    }
+  ]
+}

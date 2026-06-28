@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "verified_at": "2026-06-23T14:02:18.2567676+08:00",
+  "source_git_commit": "b1688da9ec6eaa1a1566fba7c1cd70f1d34d3217",
+  "docker_desktop_version": "4.79.0.230596",
+  "docker_engine_version": "29.5.3",
+  "image": {
+    "tag": "csc3109-efficientnet-b0:1.0",
+    "id": "sha256:f20efb837b9c956d68d3657a2eedc1d047723ecdb7597dd592efc0a2a9d00c4e",
+    "created": "2026-06-23T05:58:18.21785399Z",
+    "size_bytes": 744094351,
+    "architecture": "amd64",
+    "os": "linux",
+    "configured_user": "appuser"
+  },
+  "container": {
+    "health": "healthy",
+    "uid": 10001,
+    "gid": 10001,
+    "verification_port_mapping": "8001:8000"
+  },
+  "endpoints": {
+    "/": {
+      "status_code": 200,
+      "title_present": true,
+      "predict_fetch_present": true
+    },
+    "/health": {
+      "status_code": 200,
+      "model": "efficientnet_b0_final",
+      "class_count": 4
+    },
+    "/docs": {
+      "status_code": 200
+    },
+    "/predict": {
+      "status_code": 200,
+      "input": "dataset/set 23/coastal_mansion/coastalmansion001.jpg",
+      "input_role": "deployment workflow verification only",
+      "predicted_label": "coastal_mansion",
+      "confidence": 0.9985081553459167,
+      "score_count": 4,
+      "score_sum": 0.9999999219817255
+    }
+  },
+  "model_checkpoint_sha256": "14fd5941a8734ef81a41d13211aef7128e5f64179d1b805b15e16b6e3b94b773",
+  "regression_suite": {
+    "command": "scripts/wsl_tensorflow.sh -m pytest -q",
+    "result": "21 passed",
+    "duration_seconds": 65.33
+  }
+}

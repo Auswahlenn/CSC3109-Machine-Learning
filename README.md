@@ -7,12 +7,12 @@ using Keras/TensorFlow transfer learning.
 ## Layout
 
 ```
-data/
+dataset/
   set 23/   # FIXED train set, 700 images/class (one subfolder per class)
   val 23/   # FIXED held-out validation set, 100 images/class
 shared/     # FROZEN shared foundation (do not edit without notifying the team)
   config.py    # constants + set_seed()
-  data.py      # get_datasets() -> raw (train_ds, val_ds), no normalization
+  data.py      # internal tuning split + isolated held-out loader
   augment.py   # get_augmentation() -> training-only augmentation
   evaluate.py  # evaluate(model, val_ds, model_name) -> fixed-schema metrics
 models/     # one module per team member, each exposes build_model(...)
@@ -23,8 +23,9 @@ train.py    # shared training entrypoint (--model selects the member's model)
 ## For team members — how to test your own model
 
 You never run the files in `shared/` directly; they are libraries that
-`train.py` imports for you. You only write **one** file (your model) and run
-**one** command.
+`train.py` imports for you. Model comparison uses a deterministic internal
+tuning split derived from `set 23`; `val 23` is loaded only for explicitly
+requested smoke or final evaluation.
 
 ### 1. One-time setup
 
@@ -67,8 +68,16 @@ From the repo root, with the venv active. Use the filename **without** `.py`
 or the `models\` prefix:
 
 ```powershell
-python train.py --model <yourname>
-# optional: python train.py --model <yourname> --epochs 30 --patience 5
+python train.py --model <yourname> --run-name <unique-run-name>
+# Final selected run only: add --evaluate-held-out --run-type final
+```
+
+The EfficientNet-B0 controlled suite runs inside the configured WSL2 GPU
+environment:
+
+```powershell
+wsl.exe --distribution Ubuntu --exec /bin/bash -lc `
+  'cd /mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning && bash scripts/run_efficientnet_experiments.sh'
 ```
 
 ### 4. Collect your results
@@ -85,6 +94,8 @@ Three files appear in `results\`, named after your model:
 
 - **Don't edit anything in `shared/`** — it's frozen; changing it invalidates
   everyone's prior results.
-- **Don't re-split the data** — the `set 23` / `val 23` split is fixed.
+- **Don't tune against `val 23`** — it is reserved for smoke verification and
+  the final selected model. Training/tuning is derived deterministically from
+  `set 23` using the shared seed.
 - Only your `models\<yourname>.py` should differ between members.
 - Always activate the venv (`.\venv\Scripts\Activate.ps1`) before running.
