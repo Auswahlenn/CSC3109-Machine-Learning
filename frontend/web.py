@@ -10,7 +10,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from shared.config import CLASS_NAMES, IMAGE_SIZE  
 
 
-MODEL_PATH = REPO_ROOT / "results" / "[.keras]"
+MODEL_PATH = REPO_ROOT / "results" / "resnet50_best.keras"
 
 
 @st.cache_resource
