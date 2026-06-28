@@ -90,6 +90,11 @@ Three files appear in `results\`, named after your model:
 | `<yourname>_confusion_matrix.png` | confusion matrix |
 | `<yourname>_best.keras` | best checkpoint (highest val accuracy) |
 
+
+### 5. Run web UI
+```python
+streamlit run web.py
+```
 ### Rules (so everyone's numbers are comparable)
 
 - **Don't edit anything in `shared/`** — it's frozen; changing it invalidates
