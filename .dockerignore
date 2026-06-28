@@ -1,5 +1,6 @@
 .git
 .venv
+venv
 dataset
 docs
 eda.html
@@ -7,5 +8,6 @@ eda.ipynb
 results/*
 !results/efficientnet_b0_final_best.keras
 !results/efficientnet_b0_final_manifest.json
+!results/resnet50_best.keras
 __pycache__
 *.pyc
