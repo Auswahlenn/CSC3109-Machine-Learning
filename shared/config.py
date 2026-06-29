@@ -16,10 +16,10 @@ import tensorflow as tf
 from tensorflow import keras
 
 # --- Image / model geometry ------------------------------------------------
-# 224 is the native input size for most ImageNet backbones (ResNet, EfficientNet
+# 256 is the native input size for most ImageNet backbones (ResNet, EfficientNet
 # B0, MobileNet, etc.). Keep it fixed so every member feeds the backbone the
 # same spatial resolution.
-IMAGE_SIZE: int = 224
+IMAGE_SIZE: int = 256
 
 # Batch size used for both training and evaluation. Comparable hardware is
 # assumed; if a member must change this for memory reasons it does NOT affect
