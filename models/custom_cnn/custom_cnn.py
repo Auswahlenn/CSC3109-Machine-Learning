@@ -12,23 +12,23 @@ def build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
     x = keras.layers.Rescaling(1./255)(x)
 
     # Convolutional Block 1
-    x = keras.layers.Conv2D(256,(3,3), activation='relu')(x)
+    x = keras.layers.Conv2D(256,(3,3), activation='relu', strides=(1,1))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
     x = keras.layers.BatchNormalization()(x)
 
     # Convolutional Block 2
-    x = keras.layers.Conv2D(128,(3,3), activation='relu')(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
     x = keras.layers.BatchNormalization()(x)
 
     # Convolutional Block 3
-    x = keras.layers.Conv2D(128,(3,3), activation='relu')(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
 
     # Convolutional Block 4
-    x = keras.layers.Conv2D(128,(3,3), activation='relu')(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
 
     # Convolutional Block 5
-    x = keras.layers.Conv2D(64,(3,3), activation='relu')(x)
+    x = keras.layers.Conv2D(64,(3,3), activation='relu', strides=(1,1))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
 
     # Fully Connected Layers
@@ -41,8 +41,17 @@ def build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
 
     model = keras.Model(inputs=inputs, outputs=outputs, name="custom_cnn")
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+        optimizer=keras.optimizers.Adam(learning_rate=0.00025),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
     return model
+
+
+def get_callbacks() -> list[keras.callbacks.Callback]:
+
+    return [
+        keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.25, patience=4, min_lr=1e-6, verbose=1
+        )
+    ]

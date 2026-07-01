@@ -54,6 +54,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-name", help="Unique artifact stem.")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Override config.BATCH_SIZE for memory-limited GPUs (does not affect "
+        "comparability; only batching changes).",
+    )
     parser.add_argument("--dropout", type=float)
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument(
@@ -65,13 +72,6 @@ def parse_args() -> argparse.Namespace:
         "--run-type",
         choices=("smoke", "experiment", "final"),
         default="experiment",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=None,
-        help="Override the batch size (default: config.BATCH_SIZE). Use a smaller "
-        "value if a model runs out of GPU memory; does not affect comparability.",
     )
     return parser.parse_args()
 
@@ -120,10 +120,7 @@ def main() -> None:
         raise ValueError("patience must be non-negative")
 
     config.set_seed()
-
-    # Shared data + augmentation (identical for every member).
-    train_ds, val_ds = get_datasets(batch_size=args.batch_size)
-    train_ds, tuning_ds = get_training_datasets()
+    train_ds, tuning_ds = get_training_datasets(batch_size=args.batch_size)
     augmentation = get_augmentation()
 
     model_name, model_module = load_model_module(args.model)
@@ -155,6 +152,10 @@ def main() -> None:
     results_dir = Path(config.RESULTS_DIR)
     results_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_path = results_dir / f"{run_name}_best.keras"
+
+    extra_callbacks = (
+        model_module.get_callbacks() if hasattr(model_module, "get_callbacks") else []
+    )
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             checkpoint_path,
@@ -170,6 +171,7 @@ def main() -> None:
             restore_best_weights=True,
             verbose=1,
         ),
+        *extra_callbacks,
     ]
 
     started = time.perf_counter()
@@ -191,7 +193,7 @@ def main() -> None:
     held_out_metrics = None
     if args.evaluate_held_out:
         held_out_metrics = evaluate(
-            best_model, get_held_out_dataset(), model_name=run_name
+            best_model, get_held_out_dataset(batch_size=args.batch_size), model_name=run_name
         )
 
     active_config = getattr(

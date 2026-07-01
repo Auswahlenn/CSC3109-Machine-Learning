@@ -1,0 +1,14 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY frontend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY shared/ shared/
+COPY frontend/ frontend/
+# COPY results/resnet50_best.keras results/resnet50_best.keras
+COPY results/test_customcnn.keras results/test_customcnn.keras
+
+EXPOSE 8501
+HEALTHCHECK CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health').status==200 else 1)"
+ENTRYPOINT ["streamlit","run","frontend/web.py","--server.port=8501","--server.address=0.0.0.0"]

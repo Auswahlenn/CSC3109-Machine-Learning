@@ -220,3 +220,5 @@ __marimo__/
 # data files
 data/
 dataset/
+
+results/test_customcnn.keras
