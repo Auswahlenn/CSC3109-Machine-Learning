@@ -12,23 +12,23 @@ def build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
     x = keras.layers.Rescaling(1./255)(x)
 
     # Convolutional Block 1
-    x = keras.layers.Conv2D(256,(3,3), activation='relu', strides=(1,1))(x)
+    x = keras.layers.Conv2D(256,(3,3), activation='relu', strides=(1,1), kernel_regularizer=keras.regularizers.l2(0.0001))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
     x = keras.layers.BatchNormalization()(x)
 
     # Convolutional Block 2
-    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1), kernel_regularizer=keras.regularizers.l2(0.0001))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
     x = keras.layers.BatchNormalization()(x)
 
     # Convolutional Block 3
-    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1), kernel_regularizer=keras.regularizers.l2(0.0001))(x)
 
     # Convolutional Block 4
-    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1))(x)
+    x = keras.layers.Conv2D(128,(3,3), activation='relu', strides=(1,1), kernel_regularizer=keras.regularizers.l2(0.0001))(x)
 
     # Convolutional Block 5
-    x = keras.layers.Conv2D(64,(3,3), activation='relu', strides=(1,1))(x)
+    x = keras.layers.Conv2D(64,(3,3), activation='relu', strides=(1,1), kernel_regularizer=keras.regularizers.l2(0.0001))(x)
     x = keras.layers.MaxPooling2D((2, 2), padding='valid')(x)
 
     # Fully Connected Layers
