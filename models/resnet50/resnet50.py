@@ -13,6 +13,27 @@ from tensorflow.keras.applications.resnet50 import preprocess_input
 
 from shared import config
 
+_dropout_rate = 0.3
+_learning_rate = 1e-3
+
+
+def configure(*, dropout: float | None = None, learning_rate: float | None = None) -> None:
+    """Configure controlled experiment factors before building the model."""
+    global _dropout_rate, _learning_rate
+    if dropout is not None:
+        if not 0.0 <= dropout < 1.0:
+            raise ValueError("dropout must be in [0, 1)")
+        _dropout_rate = dropout
+    if learning_rate is not None:
+        if learning_rate <= 0.0:
+            raise ValueError("learning_rate must be positive")
+        _learning_rate = learning_rate
+
+
+def get_experiment_config() -> dict[str, float]:
+    """Return the active model factors for reproducibility metadata."""
+    return {"dropout": _dropout_rate, "learning_rate": _learning_rate}
+
 
 def build_model(
     num_classes: int, augmentation: keras.Sequential
@@ -48,12 +69,14 @@ def build_model(
     x = backbone(x, training=False)
 
     # 4. New classification head.
-    x = keras.layers.Dropout(0.3)(x)
-    outputs = keras.layers.Dense(num_classes, activation="softmax")(x)
+    x = keras.layers.Dropout(_dropout_rate, name="classifier_dropout")(x)
+    outputs = keras.layers.Dense(
+        num_classes, activation="softmax", name="class_probabilities"
+    )(x)
 
-    model = keras.Model(inputs, outputs, name="daryl")
+    model = keras.Model(inputs, outputs, name="resnet50")
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+        optimizer=keras.optimizers.Adam(learning_rate=_learning_rate),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
