@@ -1,0 +1,58 @@
+{
+  "run_name": "mobilenetv2_baseline",
+  "run_type": "experiment",
+  "model_name": "mobilenetv2",
+  "git_commit": "2dc40e8c20bcc013b6e9546aac8996ee66e83be1",
+  "seed": 42,
+  "image_size": 256,
+  "batch_size": 32,
+  "epochs_requested": 30,
+  "epochs_completed": 19,
+  "patience": 5,
+  "best_epoch": 14,
+  "duration_seconds": 636.208709999999,
+  "model_config": {
+    "dropout": 0.3,
+    "learning_rate": 0.001
+  },
+  "total_parameters": 2263108,
+  "trainable_parameters": 5124,
+  "split_counts": {
+    "training": {
+      "total": 2378,
+      "per_class": {
+        "coastal_mansion": 594,
+        "dense_residential": 595,
+        "nursing_home": 595,
+        "sparse_residential": 594
+      }
+    },
+    "tuning": {
+      "total": 420,
+      "per_class": {
+        "coastal_mansion": 105,
+        "dense_residential": 105,
+        "nursing_home": 105,
+        "sparse_residential": 105
+      }
+    },
+    "held_out": {
+      "total": 400,
+      "per_class": {
+        "coastal_mansion": 100,
+        "dense_residential": 100,
+        "nursing_home": 100,
+        "sparse_residential": 100
+      }
+    },
+    "excluded_training_files": [
+      "coastal_mansion/coastalmansion029.jpg",
+      "sparse_residential/sparseresidential021.jpg"
+    ]
+  },
+  "tensorflow_version": "2.21.0",
+  "gpus": [],
+  "checkpoint": "C:\\Users\\jianxin\\Desktop\\CSC3109-Machine-Learning\\results\\mobilenetv2_baseline_best.keras",
+  "tuning_metrics_file": "mobilenetv2_baseline_tuning.json",
+  "held_out_metrics_file": null
+}

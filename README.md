@@ -44,7 +44,7 @@ pip install -r requirements.txt
 Copy the example (don't edit the original) and change only the backbone:
 
 ```powershell
-copy models\example_resnet50.py models\<yourname>.py
+copy models\example_model\example_resnet50.py models\<yourname>.py
 ```
 
 In `models\<yourname>.py`, swap the backbone and its matching
@@ -70,6 +70,12 @@ or the `models\` prefix:
 ```powershell
 python train.py --model <yourname> --run-name <unique-run-name>
 # Final selected run only: add --evaluate-held-out --run-type final
+```
+
+MobileNetV2 example:
+
+```powershell
+python train.py --model mobilenetv2 --run-name mobilenetv2_baseline
 ```
 
 The EfficientNet-B0 controlled suite runs inside the configured WSL2 GPU
