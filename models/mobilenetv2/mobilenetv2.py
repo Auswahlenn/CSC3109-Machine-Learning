@@ -1,15 +1,21 @@
-"""ResNet50 model.
+"""MobileNetV2 transfer-learning model for aerial scene classification.
 
-This model uses the ResNet50 architecture pretrained on ImageNet
-as a frozen feature extractor. It compiles the model with Adam and categorical crossentropy loss,
-internally stacking data augmentation, preprocessing, the ResNet50 backbone, and a classification head.
+This module follows the shared model contract consumed by ``train.py``::
+
+    build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
+
+Stack order (required):
+    1. shared ``augmentation`` (passed in -- do not build your own),
+    2. MobileNetV2 ``preprocess_input`` (raw [0, 255] from the shared loader),
+    3. pretrained MobileNetV2 backbone (frozen feature extractor),
+    4. classification head ending in softmax over ``num_classes``.
 """
 
 from __future__ import annotations
 
 from tensorflow import keras
-from tensorflow.keras.applications import ResNet50
-from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
 from shared import config
 
@@ -38,15 +44,15 @@ def get_experiment_config() -> dict[str, float]:
 def build_model(
     num_classes: int, augmentation: keras.Sequential
 ) -> keras.Model:
-    """Build and compile a ResNet50 transfer-learning model.
+    """Build and compile a frozen-backbone MobileNetV2 classifier.
 
     Args:
-        num_classes: Number of output classes (``config.NUM_CLASSES``).
-        augmentation: The shared training-time augmentation pipeline from
-            ``shared.augment.get_augmentation`` (active only during training).
+        num_classes: Number of output categories (``config.NUM_CLASSES``).
+        augmentation: Shared training-only augmentation pipeline from
+            ``shared.augment.get_augmentation``.
 
     Returns:
-        A compiled ``keras.Model`` outputting softmax probabilities.
+        A compiled Keras model that outputs softmax class probabilities.
     """
     inputs = keras.Input(
         shape=(config.IMAGE_SIZE, config.IMAGE_SIZE, 3), name="image"
@@ -55,11 +61,11 @@ def build_model(
     # 1. Shared augmentation (raw [0, 255] in, raw [0, 255] out).
     x = augmentation(inputs)
 
-    # 2. Backbone-specific preprocessing.
+    # 2. Backbone-specific preprocessing -- lives here, not in shared/data.py.
     x = preprocess_input(x)
 
     # 3. Pretrained backbone as a frozen feature extractor.
-    backbone = ResNet50(
+    backbone = MobileNetV2(
         include_top=False,
         weights="imagenet",
         input_shape=(config.IMAGE_SIZE, config.IMAGE_SIZE, 3),
@@ -74,7 +80,7 @@ def build_model(
         num_classes, activation="softmax", name="class_probabilities"
     )(x)
 
-    model = keras.Model(inputs, outputs, name="resnet50")
+    model = keras.Model(inputs, outputs, name="mobilenet_v2")
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=_learning_rate),
         loss="categorical_crossentropy",
