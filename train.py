@@ -152,6 +152,12 @@ def main() -> None:
     results_dir = Path(config.RESULTS_DIR)
     results_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_path = results_dir / f"{run_name}_best.keras"
+    # Optional per-model callbacks (e.g. an LR scheduler justified by that
+    # member's own research). Each model file may define get_callbacks(); models
+    # that don't are unaffected. The shared list below stays model-agnostic.
+    extra_callbacks = (
+        model_module.get_callbacks() if hasattr(model_module, "get_callbacks") else []
+    )
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             checkpoint_path,
@@ -167,6 +173,7 @@ def main() -> None:
             restore_best_weights=True,
             verbose=1,
         ),
+        *extra_callbacks,
     ]
 
     started = time.perf_counter()

@@ -1,3 +1,16 @@
+# Dataset folders (DO NOT COMMIT)
+set 23/
+val 23/
+
+# Training outputs / model artifacts
+outputs/
+**/outputs/
+*.pt
+*.pth
+*.onnx
+*.keras
+*.h5
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -151,6 +164,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.venv-dml/
 env/
 venv/
 ENV/
