@@ -10,21 +10,17 @@ sys.path.insert(0, str(REPO_ROOT))
 from shared.config import CLASS_NAMES, IMAGE_SIZE  
 
 
-MODEL_PATH = REPO_ROOT / "results" / "resnet50_best.keras"
-
+MODEL_PATH = REPO_ROOT / "results" / "test_customcnn.keras"
 
 @st.cache_resource
-def load_model():
-    """Load the model once; return (model, error). error is None on success."""
+def load_model(model_path):          
     try:
         from tensorflow import keras
-
-        return keras.models.load_model(MODEL_PATH, compile=False), None
-    except Exception as exc:  
+        return keras.models.load_model(model_path, compile=False), None
+    except Exception as exc:
         return None, str(exc)
 
-
-model, model_error = load_model()
+model, model_error = load_model(str(MODEL_PATH))
 
 st.title("Aerial Scene Classifier 🛰️")
 st.write(
