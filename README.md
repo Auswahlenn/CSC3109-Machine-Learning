@@ -39,74 +39,60 @@ pip install -r requirements.txt
 > If a `venv\` from an older Python already exists, delete it first:
 > `Remove-Item -Recurse -Force venv`.
 
-### 2. Write your model
-
-Copy the example (don't edit the original) and change only the backbone:
-
-```powershell
-copy models\example_model\example_resnet50.py models\<yourname>.py
+### 2. Train your model
+```bash
+python train.py --model <name> --run-name <name> --evaluate-held-out --run-type final --batch-size 16 --patience 20 
 ```
 
-In `models\<yourname>.py`, swap the backbone and its matching
-`preprocess_input` (e.g. `EfficientNetB0`, `MobileNetV2`). Keep the function
-signature exactly:
+### 3. Check the __RESULTS__
+`results/`
 
-```python
-def build_model(num_classes: int, augmentation: keras.Sequential) -> keras.Model
+### 4. Config Docker and deploy UI
+To test the deployment of your model ensure the results have a __.keras__
+
+**UPDATE THE DOCKERIGNORE**
+```docker
+!results/<your_model>.keras
 ```
 
-It must return a **compiled** model that stacks, in order: the shared
-`augmentation` (passed in), your backbone's own `preprocess_input`, the
-pretrained backbone, and a new softmax head. The shared loader returns
-**raw [0, 255] pixels** on purpose — applying your backbone's `preprocess_input`
-inside your model is what lets every member use a different backbone while
-sharing identical data and evaluation.
-
-### 3. Run it
-
-From the repo root, with the venv active. Use the filename **without** `.py`
-or the `models\` prefix:
-
-```powershell
-python train.py --model <yourname> --run-name <unique-run-name>
-# Final selected run only: add --evaluate-held-out --run-type final
+Update frontend/**web.py**
+```bash
+MODEL_PATH = REPO_ROOT / "results" / "<your_model>.keras"
 ```
 
-MobileNetV2 example:
-
-```powershell
-python train.py --model mobilenetv2 --run-name mobilenetv2_baseline
+**MODIFY THIS IN THE DOCKERFILE**
+```bash
+COPY results/<your_model>.keras results/<your_model>.keras
 ```
 
-The EfficientNet-B0 controlled suite runs inside the configured WSL2 GPU
-environment:
-
-```powershell
-wsl.exe --distribution Ubuntu --exec /bin/bash -lc `
-  'cd /mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning && bash scripts/run_efficientnet_experiments.sh'
+**Build Image**
+```bash
+docker build -t your_username/your-repo-name:<version> .
 ```
 
-### 4. Collect your results
-
-Three files appear in `results\`, named after your model:
-
-| File | Contents |
-|------|----------|
-| `<yourname>.json` | accuracy, precision, recall, F1 (macro + per-class) |
-| `<yourname>_confusion_matrix.png` | confusion matrix |
-| `<yourname>_best.keras` | best checkpoint (highest val accuracy) |
-
-
-### 5. Run web UI
-```python
-streamlit run web.py
+**Tag Image**
+```bash
+docker image tage your_username/your-repo-name:<version> your_username/your-repo-name:<version>
 ```
-### Rules (so everyone's numbers are comparable)
 
-- **Don't edit anything in `shared/`** — it's frozen; changing it invalidates
-  everyone's prior results.
-- **Don't tune against `val 23`** — it is reserved for smoke verification and
-  the final selected model. Training/tuning is derived deterministically from
-  `set 23` using the shared seed.
-- Only your `models\<yourname>.py` should differ between members.
-- Always activate the venv (`.\venv\Scripts\Activate.ps1`) before running.
+**Push to Docker repository**
+```bash
+docker push your_username/your-repo-name:tag-name
+```
+
+## Example
+```bash
+docker build -t xxjiadexx/custom_cnn:v1.0 .
+docker image tag xxjiadexx/custom_cnn:v1.0 xxjiadexx/custom_cnn:v1.0
+docker push xxjiadexx/custom_cnn:v1.0
+```
+
+## Deploy UI
+```bash
+docker run --name <container_name> -p 8501:8501 <image_name:version>
+```
+
+## Example
+```bash
+docker run --name custom_cnn -p 8501:8501 xxjiadexx/custom_cnn:v1.0
+```

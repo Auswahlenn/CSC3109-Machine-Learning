@@ -10,7 +10,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from shared.config import CLASS_NAMES, IMAGE_SIZE  
 
 
-MODEL_PATH = REPO_ROOT / "results" / "test_customcnn.keras"
+MODEL_PATH = REPO_ROOT / "results" / "custom_cnn_best.keras"
 
 @st.cache_resource
 def load_model(model_path):          
