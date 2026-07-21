@@ -209,7 +209,9 @@ def main() -> None:
         "git_commit": _git_commit(),
         "seed": config.SEED,
         "image_size": config.IMAGE_SIZE,
-        "batch_size": config.BATCH_SIZE,
+        # Record the batch size actually used, not the shared default, so runs
+        # with --batch-size stay verifiable.
+        "batch_size": args.batch_size or config.BATCH_SIZE,
         "epochs_requested": args.epochs,
         "epochs_completed": len(history.epoch),
         "patience": args.patience,
