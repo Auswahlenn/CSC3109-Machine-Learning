@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "model_name": "mobilenetv2",
+  "num_classes": 4,
+  "class_names": [
+    "coastal_mansion",
+    "dense_residential",
+    "nursing_home",
+    "sparse_residential"
+  ],
+  "accuracy": 0.9575,
+  "macro": {
+    "precision": 0.9591677516596872,
+    "recall": 0.9575,
+    "f1": 0.9576103296600389
+  },
+  "per_class": {
+    "coastal_mansion": {
+      "precision": 0.9896907216494846,
+      "recall": 0.96,
+      "f1": 0.9746192893401016,
+      "support": 100
+    },
+    "dense_residential": {
+      "precision": 0.9787234042553191,
+      "recall": 0.92,
+      "f1": 0.9484536082474226,
+      "support": 100
+    },
+    "nursing_home": {
+      "precision": 0.908256880733945,
+      "recall": 0.99,
+      "f1": 0.9473684210526315,
+      "support": 100
+    },
+    "sparse_residential": {
+      "precision": 0.96,
+      "recall": 0.96,
+      "f1": 0.96,
+      "support": 100
+    }
+  },
+  "confusion_matrix": [
+    [
+      96,
+      1,
+      0,
+      3
+    ],
+    [
+      0,
+      92,
+      7,
+      1
+    ],
+    [
+      1,
+      0,
+      99,
+      0
+    ],
+    [
+      0,
+      1,
+      3,
+      96
+    ]
+  ]
+}
