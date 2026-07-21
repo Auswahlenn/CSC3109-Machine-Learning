@@ -4,4 +4,4 @@ matplotlib>=3.7
 numpy>=1.24
 pandas>=2.0
 pillow>=10.0
-vit-keras>=0.1.0
+keras-hub>=0.3.0

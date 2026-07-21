@@ -1,0 +1,55 @@
+{
+  "run_name": "ViT",
+  "run_type": "final",
+  "model_name": "ViT",
+  "git_commit": "bf31b55e4ab76897b7e956319119c790f8efd2d9",
+  "seed": 42,
+  "image_size": 256,
+  "batch_size": 16,
+  "epochs_requested": 32,
+  "epochs_completed": 30,
+  "patience": 20,
+  "best_epoch": 10,
+  "duration_seconds": 9377.6707556,
+  "model_config": {},
+  "total_parameters": 85801732,
+  "trainable_parameters": 3076,
+  "split_counts": {
+    "training": {
+      "total": 2378,
+      "per_class": {
+        "coastal_mansion": 594,
+        "dense_residential": 595,
+        "nursing_home": 595,
+        "sparse_residential": 594
+      }
+    },
+    "tuning": {
+      "total": 420,
+      "per_class": {
+        "coastal_mansion": 105,
+        "dense_residential": 105,
+        "nursing_home": 105,
+        "sparse_residential": 105
+      }
+    },
+    "held_out": {
+      "total": 400,
+      "per_class": {
+        "coastal_mansion": 100,
+        "dense_residential": 100,
+        "nursing_home": 100,
+        "sparse_residential": 100
+      }
+    },
+    "excluded_training_files": [
+      "coastal_mansion/coastalmansion029.jpg",
+      "sparse_residential/sparseresidential021.jpg"
+    ]
+  },
+  "tensorflow_version": "2.21.0",
+  "gpus": [],
+  "checkpoint": "C:\\Users\\Kaise\\CSC3109Machinealearning\\CSC3109-Machine-Learning\\results\\ViT_best.keras",
+  "tuning_metrics_file": "ViT_tuning.json",
+  "held_out_metrics_file": "ViT.json"
+}

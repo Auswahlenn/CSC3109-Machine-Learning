@@ -10,6 +10,12 @@ the CLS token embedding as the global image representation.
 
 Preprocessing: raw [0, 255] -> [-1, 1] (ViT expects mean-centred unit-range
 input, NOT the channel-wise ImageNet mean/std used by CNNs).
+
+The shared pipeline feeds every model 256x256 images (``config.IMAGE_SIZE``,
+frozen for cross-member comparability), but this preset's positional
+embeddings are fixed to a 224x224 / 14x14-patch grid. Feeding it 256x256
+directly raises a shape mismatch, so this model resizes 256 -> 224 itself
+right before the backbone.
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ import keras
 import keras_hub
 
 from shared import config
+
+_VIT_INPUT_SIZE = 224
 
 
 @keras.saving.register_keras_serializable(package="ViT")
@@ -48,10 +56,16 @@ def build_model(
     # 1. Shared augmentation (raw [0, 255] in, raw [0, 255] out).
     x = augmentation(inputs)
 
-    # 2. ViT-specific preprocessing: [0, 255] -> [-1, 1].
+    # 2. Resize 256x256 (shared config.IMAGE_SIZE) -> 224x224, the fixed grid
+    #    this preset's positional embeddings were trained on.
+    x = keras.layers.Resizing(
+        _VIT_INPUT_SIZE, _VIT_INPUT_SIZE, name="vit_resize"
+    )(x)
+
+    # 3. ViT-specific preprocessing: [0, 255] -> [-1, 1].
     x = ViTPreprocess(name="vit_preprocess")(x)
 
-    # 3. Pre-trained ViT-B/16 backbone as a frozen feature extractor.
+    # 4. Pre-trained ViT-B/16 backbone as a frozen feature extractor.
     #    Returns token sequence (batch, num_patches+1, 768); index 0 is CLS.
     backbone = keras_hub.models.ViTBackbone.from_preset(
         "vit_base_patch16_224_imagenet",
@@ -60,7 +74,7 @@ def build_model(
     x = backbone(x, training=False)
     x = x[:, 0, :]  # CLS token embedding, shape: (batch, 768)
 
-    # 4. New classification head.
+    # 5. New classification head.
     x = keras.layers.Dropout(0.3)(x)
     outputs = keras.layers.Dense(num_classes, activation="softmax", name="predictions")(x)
 

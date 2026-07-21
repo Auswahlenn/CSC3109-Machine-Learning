@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "model_name": "ViT",
+  "num_classes": 4,
+  "class_names": [
+    "coastal_mansion",
+    "dense_residential",
+    "nursing_home",
+    "sparse_residential"
+  ],
+  "accuracy": 0.965,
+  "macro": {
+    "precision": 0.9659161741619724,
+    "recall": 0.965,
+    "f1": 0.9652163145486217
+  },
+  "per_class": {
+    "coastal_mansion": {
+      "precision": 1.0,
+      "recall": 0.96,
+      "f1": 0.9795918367346939,
+      "support": 100
+    },
+    "dense_residential": {
+      "precision": 0.9326923076923077,
+      "recall": 0.97,
+      "f1": 0.9509803921568627,
+      "support": 100
+    },
+    "nursing_home": {
+      "precision": 0.9897959183673469,
+      "recall": 0.97,
+      "f1": 0.9797979797979798,
+      "support": 100
+    },
+    "sparse_residential": {
+      "precision": 0.9411764705882353,
+      "recall": 0.96,
+      "f1": 0.9504950495049505,
+      "support": 100
+    }
+  },
+  "confusion_matrix": [
+    [
+      96,
+      2,
+      0,
+      2
+    ],
+    [
+      0,
+      97,
+      1,
+      2
+    ],
+    [
+      0,
+      1,
+      97,
+      2
+    ],
+    [
+      0,
+      4,
+      0,
+      96
+    ]
+  ]
+}
