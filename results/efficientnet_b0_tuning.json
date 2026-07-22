@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "model_name": "efficientnet_b0_tuning",
+  "num_classes": 4,
+  "class_names": [
+    "coastal_mansion",
+    "dense_residential",
+    "nursing_home",
+    "sparse_residential"
+  ],
+  "accuracy": 0.969047619047619,
+  "macro": {
+    "precision": 0.9694607431028269,
+    "recall": 0.969047619047619,
+    "f1": 0.9690876606524571
+  },
+  "per_class": {
+    "coastal_mansion": {
+      "precision": 0.9537037037037037,
+      "recall": 0.9809523809523809,
+      "f1": 0.9671361502347418,
+      "support": 105
+    },
+    "dense_residential": {
+      "precision": 0.9900990099009901,
+      "recall": 0.9523809523809523,
+      "f1": 0.970873786407767,
+      "support": 105
+    },
+    "nursing_home": {
+      "precision": 0.9807692307692307,
+      "recall": 0.9714285714285714,
+      "f1": 0.9760765550239234,
+      "support": 105
+    },
+    "sparse_residential": {
+      "precision": 0.9532710280373832,
+      "recall": 0.9714285714285714,
+      "f1": 0.9622641509433962,
+      "support": 105
+    }
+  },
+  "confusion_matrix": [
+    [
+      103,
+      0,
+      0,
+      2
+    ],
+    [
+      3,
+      100,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      102,
+      2
+    ],
+    [
+      2,
+      0,
+      1,
+      102
+    ]
+  ]
+}
