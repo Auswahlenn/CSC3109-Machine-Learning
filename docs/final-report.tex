@@ -147,7 +147,8 @@ We set ourselves six objectives:
   remaining errors.
   \item \textbf{O6: Deploy the best model.} Package it in a Docker
   container with a web interface that returns the predicted category and
-  confidence scores, verified by automated deployment tests.
+  confidence scores, with automated contract tests covering the shared data
+  pipeline and training entrypoint.
 \end{enumerate}
 
 \subsection{Review of Existing Approaches}
@@ -660,9 +661,11 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 % Docker image: python:3.12-slim, Streamlit UI (frontend/web.py) on port 8501,
 % healthcheck, best-model checkpoint baked in. Upload an aerial image ->
 % predicted label + confidence (softmax). Include architecture diagram,
-% build/run commands, and UI screenshot. Mention tests/test_deployment.py.
-% NOTE: deploy the BEST model (currently ResNet-50) — dockerfile currently
-% copies custom_cnn_best.keras.
+% build/run commands, and UI screenshot.
+% NOTE: deploy the BEST model — EfficientNet-B0 (0.9775 held-out macro-F1).
+% The dockerfile currently copies custom_cnn_best.keras, so both the COPY line,
+% .dockerignore allow-list, and frontend/web.py MODEL_PATH must be switched to
+% efficientnet_b0_best.keras before the final build.
 \todo{Deployment description + screenshots}
 
 \section{Results, Insights, and Discussion}
