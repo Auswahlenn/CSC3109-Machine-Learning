@@ -2,15 +2,15 @@
   "run_name": "efficientnet_b0",
   "run_type": "final",
   "model_name": "efficientnet_b0",
-  "git_commit": "42b33230c72501a14bd879814018b153103e7efc",
+  "git_commit": "0d91df710c7529aefa1f5123787bbfb759306e1b",
   "seed": 42,
-  "image_size": 224,
-  "batch_size": 32,
-  "epochs_requested": 30,
-  "epochs_completed": 15,
-  "patience": 5,
-  "best_epoch": 10,
-  "duration_seconds": 87.0827969790007,
+  "image_size": 256,
+  "batch_size": 16,
+  "epochs_requested": 32,
+  "epochs_completed": 32,
+  "patience": 20,
+  "best_epoch": 32,
+  "duration_seconds": 449.710066218,
   "model_config": {
     "dropout": 0.3,
     "learning_rate": 0.001
@@ -54,7 +54,7 @@
   "gpus": [
     "/physical_device:GPU:0"
   ],
-  "checkpoint": "/mnt/c/Github/CSC3109-Machine-Learning/results/efficientnet_b0_best.keras",
+  "checkpoint": "/mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning/results/efficientnet_b0_best.keras",
   "tuning_metrics_file": "efficientnet_b0_tuning.json",
   "held_out_metrics_file": "efficientnet_b0.json"
 }

@@ -1,6 +1,0 @@
-# Phase 3 artifacts are verification-only and intentionally non-reportable.
-*smoke*
-
-# Preserve generated checkpoints locally; commit only the selected final model.
-*_best.keras
-!efficientnet_b0_final_best.keras

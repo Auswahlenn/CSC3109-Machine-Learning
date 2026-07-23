@@ -1,22 +1,19 @@
 {
-  "run_name": "efficientnet_b0_final",
+  "run_name": "ViT",
   "run_type": "final",
-  "model_name": "efficientnet_b0",
-  "git_commit": "0d91df710c7529aefa1f5123787bbfb759306e1b",
+  "model_name": "ViT",
+  "git_commit": "bf31b55e4ab76897b7e956319119c790f8efd2d9",
   "seed": 42,
   "image_size": 256,
-  "batch_size": 32,
-  "epochs_requested": 15,
-  "epochs_completed": 8,
-  "patience": 3,
-  "best_epoch": 5,
-  "duration_seconds": 170.58738429,
-  "model_config": {
-    "dropout": 0.3,
-    "learning_rate": 0.001
-  },
-  "total_parameters": 4054695,
-  "trainable_parameters": 5124,
+  "batch_size": 16,
+  "epochs_requested": 32,
+  "epochs_completed": 30,
+  "patience": 20,
+  "best_epoch": 10,
+  "duration_seconds": 9377.6707556,
+  "model_config": {},
+  "total_parameters": 85801732,
+  "trainable_parameters": 3076,
   "split_counts": {
     "training": {
       "total": 2378,
@@ -51,10 +48,8 @@
     ]
   },
   "tensorflow_version": "2.21.0",
-  "gpus": [
-    "/physical_device:GPU:0"
-  ],
-  "checkpoint": "/mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning/results/efficientnet_b0_final_best.keras",
-  "tuning_metrics_file": "efficientnet_b0_final_tuning.json",
-  "held_out_metrics_file": "efficientnet_b0_final.json"
+  "gpus": [],
+  "checkpoint": "C:\\Users\\Kaise\\CSC3109Machinealearning\\CSC3109-Machine-Learning\\results\\ViT_best.keras",
+  "tuning_metrics_file": "ViT_tuning.json",
+  "held_out_metrics_file": "ViT.json"
 }

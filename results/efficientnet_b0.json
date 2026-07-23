@@ -8,62 +8,62 @@
     "nursing_home",
     "sparse_residential"
   ],
-  "accuracy": 0.9625,
+  "accuracy": 0.9775,
   "macro": {
-    "precision": 0.9631586438280523,
-    "recall": 0.9624999999999999,
-    "f1": 0.9625384128770659
+    "precision": 0.9779169243454957,
+    "recall": 0.9775,
+    "f1": 0.9775073321770221
   },
   "per_class": {
     "coastal_mansion": {
+      "precision": 0.98989898989899,
+      "recall": 0.98,
+      "f1": 0.9849246231155779,
+      "support": 100
+    },
+    "dense_residential": {
+      "precision": 0.9795918367346939,
+      "recall": 0.96,
+      "f1": 0.9696969696969697,
+      "support": 100
+    },
+    "nursing_home": {
       "precision": 0.9897959183673469,
       "recall": 0.97,
       "f1": 0.9797979797979798,
       "support": 100
     },
-    "dense_residential": {
-      "precision": 0.9494949494949495,
-      "recall": 0.94,
-      "f1": 0.9447236180904522,
-      "support": 100
-    },
-    "nursing_home": {
-      "precision": 0.979381443298969,
-      "recall": 0.95,
-      "f1": 0.9644670050761421,
-      "support": 100
-    },
     "sparse_residential": {
-      "precision": 0.9339622641509434,
-      "recall": 0.99,
-      "f1": 0.9611650485436893,
+      "precision": 0.9523809523809523,
+      "recall": 1.0,
+      "f1": 0.975609756097561,
       "support": 100
     }
   },
   "confusion_matrix": [
     [
-      97,
-      2,
+      98,
+      1,
       0,
       1
     ],
     [
       0,
-      94,
-      2,
-      4
+      96,
+      1,
+      3
     ],
     [
       1,
-      2,
-      95,
-      2
+      1,
+      97,
+      1
     ],
     [
       0,
-      1,
       0,
-      99
+      0,
+      100
     ]
   ]
 }

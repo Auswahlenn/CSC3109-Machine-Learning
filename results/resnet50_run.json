@@ -2,16 +2,19 @@
   "run_name": "resnet50",
   "run_type": "final",
   "model_name": "resnet50",
-  "git_commit": "5afcbccd4ad3e2494813bb04397269f8c9fa8996",
+  "git_commit": "8a5a3195740913c3a45a5e06bf2598f8eef0d88f",
   "seed": 42,
-  "image_size": 224,
-  "batch_size": 32,
-  "epochs_requested": 30,
-  "epochs_completed": 12,
-  "patience": 5,
-  "best_epoch": 7,
-  "duration_seconds": 86.37729686900002,
-  "model_config": {},
+  "image_size": 256,
+  "batch_size": 16,
+  "epochs_requested": 32,
+  "epochs_completed": 32,
+  "patience": 20,
+  "best_epoch": 25,
+  "duration_seconds": 2043.1806389999983,
+  "model_config": {
+    "dropout": 0.3,
+    "learning_rate": 0.001
+  },
   "total_parameters": 23595908,
   "trainable_parameters": 8196,
   "split_counts": {
@@ -48,10 +51,8 @@
     ]
   },
   "tensorflow_version": "2.21.0",
-  "gpus": [
-    "/physical_device:GPU:0"
-  ],
-  "checkpoint": "/mnt/c/Github/CSC3109-Machine-Learning/results/resnet50_best.keras",
+  "gpus": [],
+  "checkpoint": "C:\\Users\\daryl\\Desktop\\CSC3109\\CSC3109-Machine-Learning\\results\\resnet50_best.keras",
   "tuning_metrics_file": "resnet50_tuning.json",
   "held_out_metrics_file": "resnet50.json"
 }

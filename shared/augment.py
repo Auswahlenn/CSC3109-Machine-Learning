@@ -43,10 +43,10 @@ def get_augmentation() -> keras.Sequential:
             keras.layers.RandomFlip(
                 "horizontal_and_vertical", seed=config.SEED
             ),
-            # Full 360-degree rotation invariance: factor=1.0 -> +/- 2*pi.
-            keras.layers.RandomRotation(factor=1.0, seed=config.SEED),
-            # Mild photometric jitter -- enough for lighting/sensor robustness
-            # without washing out fine-grained texture cues.
+            keras.layers.RandomRotation(
+                factor=0.5, fill_mode="reflect", seed=config.SEED
+            ),
+            keras.layers.RandomZoom(0.2, seed=config.SEED),
             keras.layers.RandomContrast(factor=0.1, seed=config.SEED),
             keras.layers.RandomBrightness(
                 factor=0.1, value_range=(0, 255), seed=config.SEED

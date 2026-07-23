@@ -8,56 +8,56 @@
     "nursing_home",
     "sparse_residential"
   ],
-  "accuracy": 0.88,
+  "accuracy": 0.845,
   "macro": {
-    "precision": 0.9055423539278725,
-    "recall": 0.88,
-    "f1": 0.8809436923598774
+    "precision": 0.8771929824561403,
+    "recall": 0.845,
+    "f1": 0.8452020202020203
   },
   "per_class": {
     "coastal_mansion": {
       "precision": 1.0,
-      "recall": 0.89,
-      "f1": 0.9417989417989417,
+      "recall": 0.98,
+      "f1": 0.98989898989899,
       "support": 100
     },
     "dense_residential": {
-      "precision": 0.958904109589041,
-      "recall": 0.7,
-      "f1": 0.8092485549132948,
+      "precision": 0.8421052631578947,
+      "recall": 0.64,
+      "f1": 0.7272727272727273,
       "support": 100
     },
     "nursing_home": {
-      "precision": 0.9489795918367347,
-      "recall": 0.93,
-      "f1": 0.9393939393939394,
+      "precision": 1.0,
+      "recall": 0.76,
+      "f1": 0.8636363636363636,
       "support": 100
     },
     "sparse_residential": {
-      "precision": 0.7142857142857143,
+      "precision": 0.6666666666666666,
       "recall": 1.0,
-      "f1": 0.8333333333333334,
+      "f1": 0.8,
       "support": 100
     }
   },
   "confusion_matrix": [
     [
-      89,
+      98,
       1,
       0,
-      10
+      1
     ],
     [
       0,
-      70,
-      5,
-      25
+      64,
+      0,
+      36
     ],
     [
       0,
-      2,
-      93,
-      5
+      11,
+      76,
+      13
     ],
     [
       0,
