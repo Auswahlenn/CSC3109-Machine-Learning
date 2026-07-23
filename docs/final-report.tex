@@ -321,16 +321,169 @@ Four conclusions carried forward into the design:
 
 \section{Data Preparation and Pre-Processing}
 \subsection{Data Splits and Leakage Control}
-% Deterministic internal tuning split from the 2800 training images
-% (2378 train / 420 tuning, seed 42); the 400 held-out images are loaded in
-% isolation and touched ONLY for final evaluation. Explain why: checkpoint
-% selection on the tuning split means tuning metrics are optimistically
-% biased, so all reported numbers are held-out.
+\label{sec:splits}
+
+A recurring flaw in student-scale deep learning experiments is that the same
+data guides both model selection and final reporting, which inflates the
+headline number without anyone intending to cheat. We designed the pipeline
+specifically to make that mistake impossible, using a three-way split
+implemented once in \texttt{shared/data.py} and shared by all five models.
+
+\paragraph{Three-way split.}
+The provided \texttt{val 23} directory is treated as a \emph{sealed test set}.
+All development data is therefore carved out of \texttt{set 23} alone: a
+deterministic stratified split assigns 85\% of it to model fitting and 15\% to
+an internal \emph{tuning} set (Table~\ref{tab:splits}).
+
+\begin{table}[H]
+\centering
+\caption{Three-way data split. Only the training subset updates weights; the
+tuning subset guides checkpoint selection; the held-out set is untouched until
+final evaluation.}
+\label{tab:splits}
+\small
+\begin{tabular}{llrl}
+\toprule
+Subset & Source & Images & Role \\
+\midrule
+Training & \texttt{set 23} & 2{,}378 & gradient updates \\
+Tuning   & \texttt{set 23} & 420 & early stopping, checkpoint selection \\
+Held-out & \texttt{val 23} & 400 & final evaluation only \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The split is \emph{stratified}: it is drawn independently within each class, so
+the tuning subset contains exactly 105 images per class and the training
+subset 594--595 per class. Class balance is thus preserved on both sides rather
+than left to chance, which matters because per-class $F_1$ on a 420-image
+subset is sensitive to even small imbalances.
+
+\paragraph{Determinism.}
+Reproducibility is enforced by seeding the shuffle for class $k$ with
+$\texttt{SEED} + k$ (\texttt{SEED} $=42$) rather than by a global random state.
+Consequently the partition depends only on the file listing --- not on
+execution order, machine, or how many random draws happened earlier in the
+session. Every team member, on every machine, trains on byte-identical
+subsets. The exact counts are recorded in each run's metadata via
+\texttt{get\_split\_counts()}, so any run can be audited after the fact.
+
+\paragraph{Why the held-out set must stay sealed.}
+Both \texttt{ModelCheckpoint} and \texttt{EarlyStopping} select the epoch that
+maximises \emph{tuning} accuracy. That makes tuning metrics optimistically
+biased by construction: they measure the best of roughly 30 attempts, not the
+expected performance on new data. The effect is not hypothetical --- for our
+custom CNN the tuning macro-$F_1$ of 0.908 overstates the held-out 0.845 by
+more than six points. Every number reported in
+Section~\ref{sec:results} is therefore held-out, and the tuning metrics are
+retained only as a training diagnostic.
+
+Mechanically, the held-out loader is a separate function that reads
+\texttt{val 23} and is invoked only behind an explicit
+\texttt{--evaluate-held-out} flag, after training has finished. It is never
+passed to \texttt{model.fit} and never influences a callback. Combined with the
+duplicate-image exclusion described above --- which prevents identical pixels
+from appearing on both sides of the split --- no image can reach evaluation
+having been seen during training.
+
+\paragraph{Deviation from the literature protocol.}
+Our effective proportions are approximately 74/13/13 rather than the 70/15/15
+used by the reference architecture we follow, because the test partition is
+fixed at 400 images by the provided data rather than chosen by us. Since the
+identical split is applied to all five models, this affects absolute values
+only, not the comparison between approaches.
+\subsection{Input Resolution}
+
+All models receive $256 \times 256$ RGB inputs. As established in the
+exploratory analysis, this is the \emph{native} resolution of every image in
+the collection, so no resizing artefact is introduced and no information is
+discarded. The pipeline was initially configured at the conventional ImageNet
+resolution of $224 \times 224$, which would have thrown away 23.4\% of the
+available pixels before training began; standardising on 256 removes that loss.
+
+The trade-off is that the ImageNet-pretrained backbones no longer operate at
+the resolution they were trained on. We accepted this deliberately: the
+alternative penalises the from-scratch model (which has no such prior) in order
+to flatter the pretrained ones, and comparability requires that all five
+approaches see identical inputs. Resizing uses bilinear interpolation with
+antialiasing enabled, which matters when a model internally rescales.
+
 \subsection{Augmentation}
 \label{sec:augmentation}
-% get_augmentation(): describe each transform, the tuning experiments that
-% selected them, and IMAGE_SIZE=256 rationale.
-\todo{Describe pipeline; cite shared/config.py, shared/data.py, shared/augment.py}
+
+With only 2{,}378 training images against models of 2.3M--85.8M parameters,
+augmentation is not an optional refinement but the main defence against
+overfitting. The policy is defined once in \texttt{shared/augment.py} and
+embedded as the first stage of every model, so it is applied identically across
+all five approaches and is automatically inactive at inference time.
+
+\begin{table}[H]
+\centering
+\caption{Shared training-time augmentation policy. All layers are seeded for
+reproducibility and operate on raw $[0,255]$ pixels.}
+\label{tab:augmentation}
+\small
+\begin{tabular}{lll}
+\toprule
+Transform & Setting & Justification \\
+\midrule
+Random flip & horizontal + vertical & no canonical orientation \\
+Random rotation & $\pm 180^\circ$, reflect fill & no canonical orientation \\
+Random zoom & $\pm 20\%$ & capture altitude / scale variation \\
+Random contrast & $\pm 10\%$ & sensor and lighting variation \\
+Random brightness & $\pm 10\%$ & sensor and lighting variation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Geometric transforms are label-preserving here.}
+For natural photographs a vertical flip produces an implausible image, and
+practitioners routinely restrict augmentation to horizontal flips and small
+rotations for that reason. Top-down aerial imagery has no such constraint: a
+residential block photographed from above is equally valid rotated by any
+angle or mirrored in either axis, and the class label is unchanged. Full
+flips and arbitrary rotations are therefore \emph{free} additional training
+signal rather than label noise, and we exploit them aggressively. Rotation
+uses \texttt{reflect} fill so that rotated corners contain plausible texture
+instead of black wedges, which would otherwise be a spurious cue correlated
+with augmentation rather than with class.
+
+\paragraph{Photometric transforms are kept deliberately mild.}
+Contrast and brightness are restricted to $\pm 10\%$ --- an order of magnitude
+weaker than the geometric transforms. This asymmetry is a direct consequence
+of the exploratory finding that the four classes are \emph{not} separable by
+colour: with all twelve channel means confined to a narrow band, the
+discriminative signal lies in fine-grained texture and spatial structure.
+Aggressive photometric jitter would degrade precisely the cues the models
+depend on. This was confirmed empirically --- an early configuration using a
+$\pm 50\%$ factor drove images to near-black or near-white and destroyed the
+texture detail entirely, so the factor was reduced.
+
+\paragraph{Ordering and value range.}
+The augmentation layers operate on raw $[0,255]$ pixels and return values in
+the same range, so any model-specific normalisation (a \texttt{Rescaling}
+layer for the custom CNN, or the backbone's own \texttt{preprocess\_input} for
+the transfer models) is applied \emph{after} augmentation. Placing rescaling
+first is a subtle but real bug: the brightness layer is configured for a
+$[0,255]$ value range, and feeding it $[0,1]$ inputs saturates the image to
+black. Because augmentation lives inside the model graph rather than in the
+data pipeline, this ordering is fixed at construction time and cannot be got
+wrong at inference.
+
+\paragraph{Augmentation is training-only.}
+The Keras preprocessing layers are inactive outside training, and the tuning
+and held-out datasets are never passed through the augmentation pipeline. All
+reported metrics therefore reflect performance on clean, untouched images.
+
+\paragraph{Status as a controlled variable.}
+The policy is fixed and shared rather than tuned per model. Individual
+architectures might well prefer slightly different settings, but allowing each
+member to tune augmentation independently would confound the comparison: a
+difference in final accuracy could then reflect a better augmentation search
+rather than a better architecture. Holding augmentation constant --- along with
+the data, split, input resolution, and evaluation procedure --- ensures that
+the leaderboard in Section~\ref{sec:results} isolates the effect of
+architecture, which is the stated objective of this study.
 
 \section{Deep Learning Approaches}
 % One subsection per approach (>= number of team members = 5).

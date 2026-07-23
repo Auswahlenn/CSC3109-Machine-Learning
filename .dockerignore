@@ -6,9 +6,8 @@ docs
 eda.html
 eda.ipynb
 results/*
-!results/test_customcnn.keras
-!results/efficientnet_b0_final_best.keras
-!results/efficientnet_b0_final_manifest.json
+# Re-include only the checkpoint the image actually serves (see dockerfile COPY).
+!results/efficientnet_b0_best.keras
 !results/resnet50_best.keras
 !results/custom_cnn_best.keras
 __pycache__
