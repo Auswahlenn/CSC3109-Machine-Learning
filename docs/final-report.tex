@@ -638,8 +638,191 @@ architecture, which is the stated objective of this study.
 % parameter counts), and what was customised — the spec penalises
 % "download and run" without meaningful modification.
 \subsection{Custom CNN (from scratch)}
+\label{sec:customcnn}
 % 26.5M params, all trainable. Serves as the no-pretraining baseline.
-\todo{}
+
+The custom CNN is the only approach in this study that uses no pretrained
+weights. Every one of its 26,512,212 parameters is learned from our 2,378
+training images alone. Its role is therefore twofold: it is a competitive
+architecture in its own right, and it is the experimental control that makes
+the contribution of ImageNet pretraining measurable rather than assumed --- a
+comparison the other four approaches cannot provide on their own.
+
+\subsubsection{Source Architecture}
+
+Rather than assemble an arbitrary stack of layers, we reproduce the
+\emph{Pyramidal Net} architecture proposed by Abdelmonem et al.
+\cite{Abdelmonem2026}, which was designed specifically for remote-sensing scene
+classification and reports 94.28\% accuracy on a ten-class NWPU-RESISC45 subset
+and 93\% on UC~Merced. The choice is well matched to our setting: the source
+study uses 700 images per class --- the same per-class budget as our partition
+--- and operates natively at $256 \times 256$, so its design assumptions
+transfer to our data without reinterpretation.
+
+The name describes the design principle: spatial dimensions contract while
+feature abstraction increases, so the representation narrows toward the
+classifier like a pyramid. Table~\ref{tab:customcnn-arch} gives the structure as
+implemented.
+
+\begin{table}[H]
+\centering
+\caption{Custom CNN (Pyramidal Net) architecture, following \cite{Abdelmonem2026}.}
+\label{tab:customcnn-arch}
+\small
+\begin{tabular}{lll}
+\toprule
+Stage & Configuration & Output \\
+\midrule
+Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB & $256^2 \times 3$ \\
+Augmentation & shared team policy, training only & $256^2 \times 3$ \\
+Rescaling & $\times \, 1/255$ & $256^2 \times 3$ \\
+Conv 1 & 256 filters, $3\times3$, ReLU, valid & $254^2 \times 256$ \\
+MaxPool 1 + BatchNorm & $2\times2$, valid & $127^2 \times 256$ \\
+Conv 2 & 128 filters, $3\times3$, ReLU, valid & $125^2 \times 128$ \\
+MaxPool 2 + BatchNorm & $2\times2$, valid & $62^2 \times 128$ \\
+Conv 3 & 128 filters, $3\times3$, ReLU, valid & $60^2 \times 128$ \\
+Conv 4 & 128 filters, $3\times3$, ReLU, valid & $58^2 \times 128$ \\
+Conv 5 & 64 filters, $3\times3$, ReLU, valid & $56^2 \times 64$ \\
+MaxPool 3 & $2\times2$, valid & $28^2 \times 64$ \\
+Flatten & --- & 50{,}176 \\
+Dense block & $512 \rightarrow 256 \rightarrow 64 \rightarrow 16$, ReLU & 16 \\
+Output & Dense, softmax & 4 \\
+\midrule
+\multicolumn{2}{l}{Parameters} & 26{,}512{,}212 (all trainable) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The flattened vector of 50,176 features matches the source paper exactly,
+confirming a faithful reproduction of the convolutional stack. All five
+convolutional layers use $3\times3$ kernels, unit stride, \texttt{valid}
+padding, and ReLU activation, and batch normalisation follows the first two
+pooling stages, all as specified in \cite{Abdelmonem2026}.
+
+\subsubsection{Training Configuration}
+
+The optimisation settings follow the source paper's Table~4. The learning-rate
+schedule in particular is specific to this architecture and is supplied through
+the shared training entrypoint's per-model callback hook, so it applies to this
+model alone and does not alter any teammate's run.
+
+\begin{table}[H]
+\centering
+\caption{Custom CNN training configuration, after \cite{Abdelmonem2026} Table~4.}
+\label{tab:customcnn-config}
+\small
+\begin{tabular}{lll}
+\toprule
+Hyperparameter & Source paper & This work \\
+\midrule
+Optimiser & Adam & Adam \\
+Initial learning rate & 0.00025 & 0.00025 \\
+LR scheduler & ReduceLROnPlateau & ReduceLROnPlateau \\
+LR reduction factor & 0.25 & 0.25 \\
+Scheduler patience & 4 epochs & 4 epochs \\
+Minimum learning rate & $1 \times 10^{-6}$ & $1 \times 10^{-6}$ \\
+Weight decay & L2 norm term & L2 $(10^{-4})$ on conv layers \\
+Dropout & none & none \\
+Kernel / stride / padding & $3\times3$ / 1 / valid & identical \\
+Activation & ReLU & ReLU \\
+Loss & sparse categorical CE & categorical CE (one-hot) \\
+Epochs & 30 & 32 \\
+Batch size & 8 & 16 (team standard) \\
+Random seed & 32 & 42 (team standard) \\
+Split & 70/15/15 & 74/13/13 (fixed test set) \\
+Normalisation & resize only & resize + rescale to $[0,1]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Four deviations are worth justifying explicitly. First, the loss is categorical
+cross-entropy over one-hot labels rather than the sparse variant; these are
+mathematically identical objectives differing only in label encoding, and the
+one-hot form is what the shared data pipeline emits for all five models.
+Second, batch size, seed, and split are dictated by the team-wide controlled
+variables described in Section~\ref{sec:splits}, without which the five
+approaches would not be comparable. Third, the source applies no pixel
+normalisation, keeping inputs in $[0,255]$; we insert a rescaling layer after
+augmentation because a network trained from random initialisation optimises
+more stably on normalised inputs, and the batch-normalisation layers make the
+change largely self-correcting in any case. Fourth, the paper specifies weight
+decay as ``an L2 norm term'' without a coefficient; we apply $10^{-4}$ to the
+convolutional layers, leaving the dense head unregularised.
+
+\subsubsection{Results}
+
+Trained under the shared protocol at batch size 16 for 32 epochs, the model
+selected its best checkpoint at epoch 24 and achieved \textbf{84.50\% accuracy}
+and \textbf{0.8452 macro-$F_1$} on the held-out set --- the lowest of our five
+approaches. The per-class breakdown localises the shortfall precisely:
+
+\begin{center}
+\small
+\begin{tabular}{lc}
+\toprule
+Class & $F_1$ \\
+\midrule
+\texttt{coastal\_mansion} & 0.990 \\
+\texttt{nursing\_home} & 0.864 \\
+\texttt{sparse\_residential} & 0.800 \\
+\texttt{dense\_residential} & \textbf{0.727} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Performance is essentially saturated on \texttt{coastal\_mansion}, whose
+shoreline provides an unambiguous global cue, and collapses on
+\texttt{dense\_residential}, which is predominantly misclassified as
+\texttt{sparse\_residential}. This is exactly the failure mode the exploratory
+analysis predicted: the two classes share an identical visual vocabulary and
+are separated only by a continuous density threshold, so the distinction
+requires fine-grained texture discrimination rather than scene-level cues.
+
+Training also exhibited pronounced validation instability in its early epochs,
+with tuning accuracy oscillating between 0.25 and 0.90 while training accuracy
+rose smoothly. We attribute this to the batch-normalisation moving averages,
+which are estimated from batch statistics during training but applied as
+running averages at validation time, and which converge slowly on a
+420-image tuning split. The instability resolves after the first
+learning-rate reduction, and the training curves provide a clear visual record
+of the scheduler taking effect. The final model retains a gap of roughly twelve
+points between training and tuning accuracy, indicating residual overfitting
+that the L2 term reduces but does not eliminate --- unsurprising given that
+25.7M of the 26.5M parameters reside in the first dense layer alone.
+
+\subsubsection{Discussion}
+
+Our result does not reproduce the ordering reported in \cite{Abdelmonem2026},
+where the custom architecture is presented as competitive with or superior to
+pretrained networks. On our partition it is decisively outperformed by all four
+transfer-learning approaches, including MobileNetV2, which reaches 0.9576
+macro-$F_1$ with 2.26M parameters --- roughly one twelfth of the custom model's
+capacity.
+
+We attribute the discrepancy to the granularity of the classification task
+rather than to any defect in the architecture. The ten NWPU-RESISC45 categories
+used in the source study --- harbour, chaparral, tennis court, industrial area,
+parking lot, forest, beach, overpass, airplane, and baseball diamond --- are
+semantically and visually disjoint, and are separable on coarse cues such as
+dominant colour, the presence of water, or large geometric structures. Features
+sufficient for those distinctions are learnable from 700 images per class. Our
+four categories are all residential or institutional building scenes
+distinguished by building density and spatial arrangement, and the
+discriminative features are correspondingly subtler. ImageNet pretraining
+supplies exactly the mid-level texture and structure detectors that such a task
+demands and that 2,378 images are insufficient to induce from scratch.
+
+It is also worth noting that the source paper's own comparison is more equivocal
+than its abstract suggests: on NWPU-RESISC45 (its Table~7) VGG16 attains 0.949
+and Xception 0.948 test accuracy against the proposed model's 0.9428, so the
+architecture's advantage there rests on its efficiency and its markedly stronger
+performance on the smaller UC~Merced dataset rather than on raw accuracy. Read
+in that light, our finding is less a contradiction of \cite{Abdelmonem2026} than
+a delineation of where its conclusions hold: a well-designed from-scratch CNN is
+competitive on coarse-grained scene classification, but pretraining remains
+decisive when categories are fine-grained and data is limited. Establishing that
+boundary is precisely the contribution this baseline makes to our comparison,
+and it is developed further in Section~\ref{sec:comparative}.
 \subsection{ResNet-50 (transfer learning)}
 % 23.6M total / 8.2K trainable — frozen ImageNet backbone + new head.
 ResNet's key idea is the residual (skip) connection: each block learns an
