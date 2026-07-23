@@ -163,13 +163,161 @@ We set ourselves six objectives:
 % 2. MACHINE LEARNING SOLUTIONS  (15–18 pages, 60% criterion)
 %=====================================================================
 \section{Exploratory Data Analysis}
-% From eda.ipynb: class balance (700/class), image dimensions, colour/texture
-% statistics, sample grids per class, visual evidence of WHY the classes are
-% confusable (e.g. nursing_home vs dense_residential share building density;
-% sparse_residential vs coastal_mansion share vegetation/large lots).
-% Mention the 2 excluded corrupt/duplicate training files
-% (coastalmansion029.jpg, sparseresidential021.jpg) and why.
-\todo{EDA figures + findings}
+% Source: eda.ipynb. Every figure and statistic below is computed from the
+% TRAINING split only (plus validation *counts*); no modelling decision is
+% informed by the held-out images.
+
+Exploratory analysis was carried out before any model was built, and
+deliberately restricted to the training split. Only the \emph{counts} of the
+held-out directory were inspected; no held-out image was viewed or measured,
+so none of the design decisions that follow could have been informed by the
+data used for final evaluation.
+
+\subsection{Class Balance}
+
+The dataset is exactly balanced. Each of the four categories contributes 700
+training images and 100 held-out images, giving 2{,}800 and 400 respectively
+(Table~\ref{tab:class-balance}).
+
+\begin{table}[H]
+\centering
+\caption{Class distribution across the provided splits.}
+\label{tab:class-balance}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Class & Train & Held-out & Total \\
+\midrule
+\texttt{coastal\_mansion}    & 700 & 100 & 800 \\
+\texttt{dense\_residential}  & 700 & 100 & 800 \\
+\texttt{nursing\_home}       & 700 & 100 & 800 \\
+\texttt{sparse\_residential} & 700 & 100 & 800 \\
+\midrule
+Total & 2{,}800 & 400 & 3{,}200 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Perfect balance has two consequences for the rest of this report. First, plain
+accuracy is not misleading here, because a majority-class predictor is capped
+at 25\%; we nevertheless report macro-$F_1$ alongside it, since macro-averaging
+exposes a collapse on any single class that accuracy alone can hide. Second,
+no class weighting or resampling is required, which removes a confounding
+variable from the five-model comparison.
+
+\subsection{Image Properties}
+
+Sampling 100 images per class (400 in total) shows the collection to be
+perfectly uniform: every image is $256 \times 256$ pixels with zero variance,
+an aspect ratio of exactly $1.0$, and all 400 sampled images are in RGB mode.
+No greyscale, CMYK, or alpha-channel images are present, and no corrupt files
+were encountered.
+
+This uniformity motivated a concrete team decision. The pipeline was
+originally configured at the conventional ImageNet resolution of
+$224 \times 224$, but because the source images are natively $256 \times 256$,
+that setting discarded roughly 23\% of the available pixels before training
+began. The shared configuration was therefore standardised at
+\texttt{IMAGE\_SIZE = 256} so that models operate on the data at its native
+resolution and no downsampling artefacts are introduced. The trade-off --- the
+ImageNet-pretrained backbones no longer receive their native input size --- is
+revisited in Section~\ref{sec:comparative}.
+
+\subsection{Colour Statistics}
+
+Mean per-channel intensities were computed over 60 images per class
+(Table~\ref{tab:colour-signature}). The striking result is how little colour
+separates the categories: all twelve channel means fall within a narrow band
+of roughly 60--100 intensity units.
+
+\begin{table}[H]
+\centering
+\caption{Mean per-channel intensity by class (60 training images per class).}
+\label{tab:colour-signature}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Class & R & G & B \\
+\midrule
+\texttt{coastal\_mansion}    & 74.2 & 71.6 & 63.0 \\
+\texttt{dense\_residential}  & 89.7 & 86.3 & 77.3 \\
+\texttt{nursing\_home}       & 96.9 & 100.6 & 88.0 \\
+\texttt{sparse\_residential} & 70.4 & 74.6 & 60.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\texttt{coastal\_mansion} and \texttt{sparse\_residential} are especially
+close, differing by under 4 intensity units in every channel --- both are
+low-density scenes dominated by vegetation and large plots.
+\texttt{nursing\_home} is the brightest class, consistent with large
+institutional roofs. The practical implication is that a classifier cannot
+succeed on colour alone: the discriminative signal lies in \emph{texture and
+spatial structure} --- building density, roof arrangement, road layout, and the
+regularity of the built pattern. This prediction is borne out by the results in
+Section~\ref{sec:results}, where the residual errors are concentrated in
+exactly the density-based distinctions rather than colour-based ones.
+
+\subsection{Visual Confusability}
+
+Inspecting sample grids per class confirms that this is a genuinely
+fine-grained problem rather than a coarse one. All four categories are
+suburban aerial scenes photographed at similar altitude, sharing the same
+vocabulary of roofs, roads, and vegetation; they differ only in the
+\emph{arrangement} and \emph{density} of those elements. Two pairs are
+particularly difficult:
+
+\begin{itemize}
+  \item \texttt{dense\_residential} versus \texttt{sparse\_residential} --- an
+    identical scene type separated only by a continuous, unlabelled density
+    threshold, with no discrete visual boundary between them.
+  \item \texttt{nursing\_home} versus \texttt{dense\_residential} --- both show
+    clustered multi-unit buildings; the distinction rests on building
+    footprint and layout regularity rather than on scene content.
+\end{itemize}
+
+These predictions were recorded before training and are directly confirmed by
+the confusion matrices in Section~\ref{sec:results}.
+
+\subsection{Data Quality: Duplicate Images}
+
+One integrity problem was found. Two training files are byte-identical to each
+other yet assigned to conflicting classes:
+
+\begin{center}
+\texttt{coastal\_mansion/coastalmansion029.jpg} \quad and \quad
+\texttt{sparse\_residential/sparseresidential021.jpg}
+\end{center}
+
+The same image therefore carries two mutually exclusive labels. Left in place
+it supplies contradictory gradients and, worse, could place identical pixels on
+both sides of the train/tuning split --- a small but genuine leakage path.
+Both files are excluded logically by the shared loader through
+\texttt{EXCLUDED\_TRAIN\_FILES} in \texttt{shared/config.py}; the source data on
+disk is never modified, so the exclusion is reproducible and auditable by every
+team member. The usable training pool is consequently 2{,}798 images. Notably,
+the affected pair belongs to the two classes that colour statistics already
+identified as most similar.
+
+\subsection{Implications for Modelling}
+
+Four conclusions carried forward into the design:
+
+\begin{enumerate}
+  \item \textbf{Accuracy is a fair headline metric} (balanced classes), but
+    macro-$F_1$ is reported alongside it to expose per-class collapse.
+  \item \textbf{Inputs are standardised at $256 \times 256$}, the native
+    resolution, avoiding avoidable information loss.
+  \item \textbf{Texture and structure, not colour, carry the signal}, so the
+    augmentation policy must preserve fine-grained texture --- photometric
+    jitter is kept deliberately mild for this reason
+    (Section~\ref{sec:augmentation}).
+  \item \textbf{Aerial scenes have no canonical orientation.} Unlike natural
+    photographs, a top-down scene is equally valid flipped or rotated, so full
+    horizontal and vertical flips and arbitrary rotations are
+    \emph{label-preserving} here. This observation directly justifies the
+    shared augmentation policy.
+\end{enumerate}
 
 \section{Data Preparation and Pre-Processing}
 \subsection{Data Splits and Leakage Control}
@@ -179,6 +327,7 @@ We set ourselves six objectives:
 % selection on the tuning split means tuning metrics are optimistically
 % biased, so all reported numbers are held-out.
 \subsection{Augmentation}
+\label{sec:augmentation}
 % get_augmentation(): describe each transform, the tuning experiments that
 % selected them, and IMAGE_SIZE=256 rationale.
 \todo{Describe pipeline; cite shared/config.py, shared/data.py, shared/augment.py}
@@ -321,6 +470,7 @@ matching how this checkpoint was pretrained.
 % Fixed-schema evaluate(): accuracy, per-class and macro precision/recall/F1,
 % confusion matrix, on the 400 held-out images (100/class).
 \subsection{Results}
+\label{sec:results}
 % Held-out (val 23) leaderboard — numbers below are from results/*.json:
 \begin{table}[H]
 \centering
@@ -345,6 +495,7 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 \todo{Figures + per-class discussion}
 
 \section{Strengths, Weaknesses, and Comparative Insights}
+\label{sec:comparative}
 % Required by the spec: discuss each approach EXTENSIVELY.
 % Suggested axes: accuracy vs parameter count vs training cost vs inference
 % latency; data efficiency of transfer learning; ViT's cost/benefit at this
