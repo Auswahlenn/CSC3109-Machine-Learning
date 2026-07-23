@@ -772,23 +772,109 @@ Class & $F_1$ \\
 
 Performance is essentially saturated on \texttt{coastal\_mansion}, whose
 shoreline provides an unambiguous global cue, and collapses on
-\texttt{dense\_residential}, which is predominantly misclassified as
-\texttt{sparse\_residential}. This is exactly the failure mode the exploratory
-analysis predicted: the two classes share an identical visual vocabulary and
-are separated only by a continuous density threshold, so the distinction
-requires fine-grained texture discrimination rather than scene-level cues.
+\texttt{dense\_residential}. The confusion matrix in
+Figure~\ref{fig:customcnn-cm} shows that this is not diffuse error but a single
+dominant confusion: \texttt{dense\_residential} is misclassified as
+\texttt{sparse\_residential} in a large fraction of cases, while
+\texttt{sparse\_residential} itself is recovered almost perfectly. The error is
+therefore \emph{asymmetric} --- the model under-predicts density rather than
+confusing the two classes symmetrically.
 
-Training also exhibited pronounced validation instability in its early epochs,
-with tuning accuracy oscillating between 0.25 and 0.90 while training accuracy
-rose smoothly. We attribute this to the batch-normalisation moving averages,
-which are estimated from batch statistics during training but applied as
-running averages at validation time, and which converge slowly on a
-420-image tuning split. The instability resolves after the first
-learning-rate reduction, and the training curves provide a clear visual record
-of the scheduler taking effect. The final model retains a gap of roughly twelve
-points between training and tuning accuracy, indicating residual overfitting
-that the L2 term reduces but does not eliminate --- unsurprising given that
-25.7M of the 26.5M parameters reside in the first dense layer alone.
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/custom_cnn_tuning_confusion_matrix.png}
+  \\[0.2em] {\small (a) Tuning split (420 images)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/custom_cnn_confusion_matrix.png}
+  \\[0.2em] {\small (b) Held-out set (400 images)}
+\end{minipage}
+\caption{Custom CNN confusion matrices. (a) The tuning split, on which the
+checkpoint was selected. (b) The sealed held-out set. Errors concentrate
+almost entirely in the \texttt{dense\_residential} $\rightarrow$
+\texttt{sparse\_residential} direction, and that confusion is markedly worse on
+the held-out data --- the visual signature of checkpoint-selection bias.}
+\label{fig:customcnn-cm}
+\end{figure}
+
+This is exactly the failure mode the exploratory analysis predicted: the two
+classes share an identical visual vocabulary and are separated only by a
+continuous density threshold, so the distinction requires fine-grained texture
+discrimination rather than scene-level cues.
+
+\paragraph{Checkpoint-selection bias is class-specific.}
+Comparing the two panels of Figure~\ref{fig:customcnn-cm} quantifies the
+optimism introduced by selecting the checkpoint on tuning accuracy, and shows
+that it is not spread evenly across classes (Table~\ref{tab:customcnn-bias}).
+
+\begin{table}[H]
+\centering
+\caption{Per-class $F_1$ on the tuning split versus the held-out set.}
+\label{tab:customcnn-bias}
+\small
+\begin{tabular}{lccr}
+\toprule
+Class & Tuning & Held-out & $\Delta$ \\
+\midrule
+\texttt{coastal\_mansion}    & 0.950 & 0.990 & $+0.040$ \\
+\texttt{nursing\_home}       & 0.871 & 0.864 & $-0.007$ \\
+\texttt{sparse\_residential} & 0.893 & 0.800 & $-0.093$ \\
+\texttt{dense\_residential}  & 0.917 & 0.727 & $\mathbf{-0.190}$ \\
+\midrule
+Macro-$F_1$ & 0.9079 & 0.8452 & $-0.0627$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three of the four classes transfer with little or no loss, and
+\texttt{coastal\_mansion} in fact improves. Essentially the entire 6.3-point
+macro-$F_1$ drop is attributable to \texttt{dense\_residential}, which falls by
+19 points. On the tuning split the model appears to have largely solved that
+class at $F_1 = 0.917$; on unseen data it has not, at $F_1 = 0.727$. The
+selected checkpoint is thus the epoch at which the model best fitted the
+particular density boundary present in those 420 tuning images, and that
+boundary does not generalise.
+
+This is a concrete illustration of why Section~\ref{sec:splits} insists on a
+sealed held-out set. Had the tuning metrics been reported as final --- a
+natural mistake, since they are computed on data the model never received
+gradients from --- we would have overstated this model's performance by more
+than six points and, more seriously, drawn the wrong conclusion about which
+class remains unsolved.
+
+The training curves (Figure~\ref{fig:customcnn-curves}) reveal two distinct
+phases. Through roughly the first fifteen epochs the model exhibits pronounced
+validation instability, with tuning accuracy oscillating between 0.25 and 0.90
+and validation loss spiking above 4.0, while training accuracy rises smoothly
+throughout. We attribute this asymmetry to the batch-normalisation moving
+averages, which are estimated from batch statistics during training but applied
+as running averages at validation time, and which converge slowly on a
+420-image tuning split. After the first learning-rate reduction at epoch 16 the
+oscillation collapses and validation loss flattens, giving a clear visual record
+of the scheduler earning its place in the configuration.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/custom_cnn_curves.png}
+\caption{Custom CNN training curves. The dashed line marks epoch 24, the
+checkpoint selected on tuning accuracy. Early validation instability is
+consistent with batch-normalisation statistics converging on a small tuning
+split; it subsides once the learning-rate scheduler first fires at epoch 16.
+The persistent gap between the training and validation curves after epoch 20
+indicates residual overfitting.}
+\label{fig:customcnn-curves}
+\end{figure}
+
+The second phase exposes the model's central limitation. Training accuracy
+continues to climb toward 0.99 while validation accuracy plateaus near 0.87 and
+validation loss ceases to improve, leaving a gap of roughly twelve points. The
+L2 term reduces this overfitting but does not eliminate it, which is
+unsurprising given that 25.7M of the 26.5M parameters reside in the first dense
+layer alone --- 97\% of the model's capacity is concentrated in a single layer
+fitted to 2,378 images.
 
 \subsubsection{Discussion}
 
