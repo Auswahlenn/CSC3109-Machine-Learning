@@ -241,6 +241,7 @@ the held-out set the model achieves \textbf{97.5\% accuracy} and
 The full comparison, training curves, and confusion matrix are given in
 Section~\ref{ CHANGE LATER}.
 
+SOUNDS A LITTLE AI NOW IMMA FIX LTR
 \subsection{EfficientNet-B0 (transfer learning)}
 \todo{}
 \subsection{MobileNetV2 (transfer learning)}
@@ -250,6 +251,60 @@ Section~\ref{ CHANGE LATER}.
 % 85.8M total / 3.1K trainable; input resize fix; attention-based contrast
 % to the convolutional models.
 \todo{}
+The Vision Transformer applies a pure Transformer architecture to images:
+the input is split into fixed $16\times16$ patches, each patch is linearly
+embedded and given a learned position embedding, and the resulting sequence
+is processed by a stack of self-attention layers. Unlike a CNN, whose
+convolutions can only relate nearby pixels layer by layer, self-attention
+lets every patch attend to every other patch from the first layer onward,
+capturing global layout cues directly. This makes ViT a structurally
+different approach from our four convolutional models, which is exactly the
+contrast our comparison needs: aerial scene categories such as dense versus
+sparse residential are distinguished less by any single local texture than
+by the overall spatial arrangement of buildings, roads, and vegetation.
+
+We use the ViT-B/16 backbone pretrained on ImageNet as a frozen feature
+extractor and train only a small classification head on the CLS token
+embedding. As with the other approaches, the whole pipeline is packaged
+inside a single Keras model (Table~2): the saved checkpoint accepts raw
+$[0,255]$ RGB images and applies augmentation and preprocessing itself.
+
+\begin{table}[h]
+  \centering
+  \caption{ViT-B/16 model configuration.}
+  \begin{tabular}{ll}
+    Stage & Details \\
+    \hline
+    Input & $256\times256\times3$, raw $[0,255]$ RGB \\
+    Augmentation & shared team policy, active during training only \\
+    Resize & $256\times256 \rightarrow 224\times224$ (bilinear), see below \\
+    Preprocessing & scale to $[-1,1]$ (ViT convention, not ImageNet channel stats) \\
+    Backbone & ViT-B/16, ImageNet weights, frozen; 12 layers, 768 hidden dim, 12 heads \\
+    Head & CLS token $\rightarrow$ dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
+    Parameters & 85{,}801{,}732 total; 3{,}076 trainable \\
+    Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
+  \end{tabular}
+\end{table}
+
+Three design decisions are worth spelling out. First, the model resizes its
+input from the shared $256\times256$ to $224\times224$ immediately before
+the backbone. This is not optional: ViT's learned position embeddings form
+a fixed table with one entry per patch position ($14\times14$ patches
+$+$ CLS $=$ 197 tokens for a $224\times224$ input), so a $256\times256$
+input would produce 257 tokens with no pretrained embedding to match. CNNs
+tolerate off-resolution input silently because convolution weights are
+shared across positions; ViT makes the mismatch explicit. Notably, the CNN
+backbones used by the other approaches were also pretrained at
+$224\times224$, so our ViT is arguably the only model evaluated at its
+native pretraining resolution. The resize is placed after the shared
+augmentation, so regularisation is applied identically to all five models.
+Second, the backbone is frozen: ViTs lack the inductive biases of
+convolutions and are known to need large datasets when fine-tuned, so with
+only 2{,}798 usable training images we fit just the 3{,}076-parameter head
+--- by far the smallest trainable footprint of our five approaches, which
+also makes overfitting nearly impossible. Third, preprocessing scales
+pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
+matching how this checkpoint was pretrained.
 
 \section{Model Training and Tuning}
 % The shared protocol that makes the comparison FAIR: identical seed (42),
@@ -320,8 +375,21 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 % One short paragraph per member: model owned, plus shared-infrastructure /
 % EDA / deployment / report work. Keep it concrete (branches: model/customcnn,
 % model/ResNet-50, model/effNet-b0, mobilenetv2, model/vit, feature/frontend).
-\todo{Per-member contributions}
-
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}l@{\hspace{2.5em}}l@{}}
+\toprule
+\textbf{Member} & \textbf{Contribution} \\
+\midrule
+Pang Jia De         & Custom CNN --- from-scratch baseline \\
+Daryl Chong Han Kin & ResNet-50 --- transfer learning \\
+Tan Jian Xin        & MobileNetV2 --- transfer learning \\
+Kaiser               & Vision Transformer (ViT-B/16) --- transfer learning \\
+Jun Kiat            & EfficientNet-B0 --- transfer learning \\
+\bottomrule
+\end{tabular}
+\renewcommand{\arraystretch}{1}
+\end{table}
+\todo{need 1-2 page rn too little}
 %=====================================================================
 % 4. REFLECTION  (2–3 pages)
 %=====================================================================
@@ -331,7 +399,7 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 % learning in low-data regimes, team engineering (frozen shared/ contract,
 % branch workflow, result schemas), debugging (ViT input resize fix,
 % TF Python-version constraints, WSL GPU setup).
-\todo{Reflection}
+
 
 %=====================================================================
 % 5. FUTURE WORK  (1–2 pages)
