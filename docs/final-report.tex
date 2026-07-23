@@ -943,7 +943,7 @@ Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
 \bottomrule
 \end{tabular}
 \end{table}
-Three design decisions are worth spelling out. First, the backbone is frozen rather than fine-tuned: with 2,800 training images against 23.6M parameters, full fine-tuning risks overfitting, and freezing matches what the other transfer models do, keeping the comparison clean. Only the 8,196 parameter head is fitted to our data. Second, augmentation and preprocessing live inside the model graph rather than in the data
+Three design decisions are worth spelling out. First, the backbone is frozen rather than fine-tuned: with 2,378 training images against 23.6M parameters, full fine-tuning risks overfitting, and freezing matches what the other transfer models do, keeping the comparison clean. Only the 8,196 parameter head is fitted to our data. Second, augmentation and preprocessing live inside the model graph rather than in the data
 pipeline, so the deployed checkpoint cannot be fed wrongly normalised inputs
 --- what the model sees at inference is exactly what it saw in training.
 Third, the two head hyper-parameters (dropout rate and learning rate) are
@@ -951,14 +951,94 @@ exposed as controlled experiment factors; the chosen values (0.3 and
 $10^{-3}$) were selected on the internal tuning split and never against the
 held-out set.
 
-Training used the shared protocol, batch size 16, up to 32 epochs, early
-stopping with patience 20 and selected the best checkpoint at epoch 25. On
-the held-out set the model achieves \textbf{97.5\% accuracy} and
-\textbf{0.975 macro-$F_1$} which is one of the strongest result of our five approaches.
-The full comparison, training curves, and confusion matrix are given in
-Section~\ref{ CHANGE LATER}.
+\subsubsection{Results}
 
-SOUNDS A LITTLE AI NOW IMMA FIX LTR
+Training used the shared protocol --- batch size 16, up to 32 epochs, early
+stopping with patience 20 --- and selected the best checkpoint at epoch 25,
+after 2,043 seconds. On the held-out set the model achieves \textbf{97.5\%
+accuracy} and \textbf{0.9750 macro-$F_1$}, the second strongest of our five
+approaches. Per-class $F_1$ ranges narrowly from 0.964
+(\texttt{dense\_residential}) to 0.995 (\texttt{coastal\_mansion}), so no class
+is left behind. The full leaderboard is given in Section~\ref{sec:results}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/resnet50_curves.png}
+\caption{ResNet-50 training curves. The dashed line marks epoch 25, the
+selected checkpoint. Training and validation curves track each other closely
+throughout, and validation accuracy frequently exceeds training accuracy
+because augmentation is active only on the training stream.}
+\label{fig:resnet50-curves}
+\end{figure}
+
+The curves in Figure~\ref{fig:resnet50-curves} differ markedly from those of
+the from-scratch model. Validation accuracy exceeds 0.91 after a single epoch
+and settles above 0.95 within five, reflecting that the frozen ImageNet
+features are already discriminative for this task and only the 8,196-parameter
+head has to be fitted. There is no widening gap between the training and
+validation curves; indeed validation accuracy frequently sits \emph{above}
+training accuracy, which is expected here because augmentation is applied to
+the training stream only, so the model is scored on clean images at validation
+time but on flipped, rotated, and jittered ones during training. With so few
+trainable parameters the model has almost no capacity to memorise the training
+set, and the residual oscillation around epochs 13--16 reflects the small size
+of the 420-image tuning split rather than instability in the model.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/resnet50_tuning_confusion_matrix.png}
+  \\[0.2em] {\small (a) Tuning split (420 images)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/resnet50_confusion_matrix.png}
+  \\[0.2em] {\small (b) Held-out set (400 images)}
+\end{minipage}
+\caption{ResNet-50 confusion matrices. Unlike the from-scratch model, the two
+panels are closely similar: the frozen backbone leaves little room for the
+checkpoint to overfit the tuning split.}
+\label{fig:resnet50-cm}
+\end{figure}
+
+\paragraph{Checkpoint-selection bias is negligible.}
+Repeating the tuning-versus-held-out comparison made for the custom CNN
+(Table~\ref{tab:resnet50-bias}) produces a very different picture. Every class
+transfers within $\pm 0.02$ $F_1$, and the macro-$F_1$ falls by only 0.006 ---
+roughly one tenth of the 0.063 drop seen in the from-scratch model.
+
+\begin{table}[H]
+\centering
+\caption{ResNet-50 per-class $F_1$ on the tuning split versus the held-out set.}
+\label{tab:resnet50-bias}
+\small
+\begin{tabular}{lccr}
+\toprule
+Class & Tuning & Held-out & $\Delta$ \\
+\midrule
+\texttt{coastal\_mansion}    & 0.977 & 0.995 & $+0.018$ \\
+\texttt{sparse\_residential} & 0.976 & 0.966 & $-0.010$ \\
+\texttt{nursing\_home}       & 0.990 & 0.975 & $-0.015$ \\
+\texttt{dense\_residential}  & 0.981 & 0.964 & $-0.017$ \\
+\midrule
+Macro-$F_1$ & 0.9810 & 0.9750 & $-0.0059$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The contrast is instructive, and it is explained by trainable capacity rather
+than by architecture family. Selecting a checkpoint on tuning accuracy can only
+inflate the reported score to the extent that the model is able to fit the
+idiosyncrasies of those 420 images. ResNet-50 adapts 8,196 parameters and shows
+a 0.6-point optimism; the custom CNN adapts 26,511,444 and shows a 6.3-point
+optimism concentrated almost entirely in one class. Freezing the backbone
+therefore buys not only accuracy but also \emph{trustworthiness of the
+validation signal} --- a benefit that a leaderboard alone does not reveal. This
+relationship is examined across all five models in
+Section~\ref{sec:comparative}.
+
+% TODO (Daryl): rewrite the prose above in your own voice before submission.
 \subsection{EfficientNet-B0 (transfer learning)}
 \todo{}
 \subsection{MobileNetV2 (transfer learning)}
