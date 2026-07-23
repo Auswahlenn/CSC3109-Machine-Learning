@@ -1047,11 +1047,10 @@ Section~\ref{sec:comparative}.
 \subsection{Vision Transformer (ViT)}
 % 85.8M total / 3.1K trainable; input resize fix; attention-based contrast
 % to the convolutional models.
-\todo{}
-The Vision Transformer applies a pure Transformer architecture to images:
-the input is split into fixed $16\times16$ patches, each patch is linearly
-embedded and given a learned position embedding, and the resulting sequence
-is processed by a stack of self-attention layers. Unlike a CNN, whose
+The Vision Transformer \cite{Dosovitskiy2021} applies a pure Transformer
+architecture to images: the input is split into fixed $16\times16$ patches,
+each patch is linearly embedded and given a learned position embedding, and
+the resulting sequence is processed by a stack of self-attention layers. Unlike a CNN, whose
 convolutions can only relate nearby pixels layer by layer, self-attention
 lets every patch attend to every other patch from the first layer onward,
 capturing global layout cues directly. This makes ViT a structurally
@@ -1063,24 +1062,29 @@ by the overall spatial arrangement of buildings, roads, and vegetation.
 We use the ViT-B/16 backbone pretrained on ImageNet as a frozen feature
 extractor and train only a small classification head on the CLS token
 embedding. As with the other approaches, the whole pipeline is packaged
-inside a single Keras model (Table~2): the saved checkpoint accepts raw
-$[0,255]$ RGB images and applies augmentation and preprocessing itself.
+inside a single Keras model (Table~\ref{tab:vit-config}): the saved
+checkpoint accepts raw $[0,255]$ RGB images and applies augmentation and
+preprocessing itself.
 
-\begin{table}[h]
-  \centering
-  \caption{ViT-B/16 model configuration.}
-  \begin{tabular}{ll}
-    Stage & Details \\
-    \hline
-    Input & $256\times256\times3$, raw $[0,255]$ RGB \\
-    Augmentation & shared team policy, active during training only \\
-    Resize & $256\times256 \rightarrow 224\times224$ (bilinear), see below \\
-    Preprocessing & scale to $[-1,1]$ (ViT convention, not ImageNet channel stats) \\
-    Backbone & ViT-B/16, ImageNet weights, frozen; 12 layers, 768 hidden dim, 12 heads \\
-    Head & CLS token $\rightarrow$ dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
-    Parameters & 85{,}801{,}732 total; 3{,}076 trainable \\
-    Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
-  \end{tabular}
+\begin{table}[H]
+\centering
+\caption{ViT-B/16 model configuration.}
+\label{tab:vit-config}
+\small
+\begin{tabular}{ll}
+\toprule
+Stage & Details \\
+\midrule
+Input & $256\times256\times3$, raw $[0,255]$ RGB \\
+Augmentation & shared team policy, active during training only \\
+Resize & $256\times256 \rightarrow 224\times224$ (bilinear), see below \\
+Preprocessing & scale to $[-1,1]$ (ViT convention, not ImageNet channel stats) \\
+Backbone & ViT-B/16, ImageNet weights, frozen; 12 layers, 768 hidden dim, 12 heads \\
+Head & CLS token $\rightarrow$ dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
+Parameters & 85{,}801{,}732 total; 3{,}076 trainable \\
+Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 Three design decisions are worth spelling out. First, the model resizes its
@@ -1102,6 +1106,135 @@ only 2{,}798 usable training images we fit just the 3{,}076-parameter head
 also makes overfitting nearly impossible. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
 matching how this checkpoint was pretrained.
+
+\paragraph{Pretraining-source ablation.}
+The choice of pretrained weights was validated experimentally rather than
+assumed. The selected checkpoint was pretrained on ImageNet-21k and then
+finetuned on ImageNet-1k; we compared it against the raw ImageNet-21k
+weights (never finetuned to the 1k label space) under an otherwise identical
+protocol --- same seed, split, augmentation, and training flags. Our
+hypothesis was that the more generic 21k features would transfer better to
+aerial imagery, which is a clear domain shift from natural photos. To keep
+the held-out set untouched by model selection, the comparison used the
+internal tuning split only (Table~\ref{tab:vit-ablation}).
+
+\begin{table}[H]
+\centering
+\caption{ViT pretraining-source ablation on the internal tuning split.}
+\label{tab:vit-ablation}
+\small
+\begin{tabular}{lccc}
+\toprule
+Variant & Tuning accuracy & Tuning macro-$F_1$ & Best epoch \\
+\midrule
+ImageNet-1k finetuned (selected) & 0.9548 & 0.9549 & 10 \\
+ImageNet-21k raw                 & 0.9405 & 0.9408 & 31 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The hypothesis was cleanly falsified: the 1k-finetuned checkpoint scored
+1.4 points higher macro-$F_1$ and converged three times faster (best epoch
+10 vs.\ 31, with the 21k variant still improving when the 32-epoch budget
+ended). The explanation lies in how the features are used. Supervised
+finetuning on the 1k label space shapes the CLS embedding to be linearly
+separable --- precisely what a frozen-backbone setup with a softmax head
+requires. The raw 21k features are not poorer, but more entangled: a
+3{,}076-parameter head can only draw four hyperplanes through the
+768-dimensional embedding space and cannot re-mix features, so it benefits
+from geometry that finetuning has already organised. The slow crawl of the
+21k run is the visible signature of that harder optimisation problem. With
+full fine-tuning the outcome could well reverse; in the frozen regime, the
+linear-separability effect dominated the domain-shift effect. The 1k
+variant was therefore retained, and only it was evaluated on the held-out
+set.
+
+\subsubsection{Results}
+
+Training used the shared protocol --- batch size 16, up to 32 epochs, early
+stopping with patience 20 --- and selected the best checkpoint at epoch 10,
+the earliest of our five approaches; training stopped at epoch 30 after
+9{,}378 seconds on CPU. On the held-out set the model achieves
+\textbf{96.5\% accuracy} and \textbf{0.9652 macro-$F_1$}, third of the five
+approaches and within 1.25 points of the strongest. Per-class $F_1$ ranges
+from 0.951 (\texttt{sparse\_residential} and \texttt{dense\_residential})
+to 0.980 (\texttt{nursing\_home} and \texttt{coastal\_mansion}, the latter
+with perfect precision --- no image of any other class was ever predicted
+as a coastal mansion). The full leaderboard is given in
+Section~\ref{sec:results}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/ViT_curves.png}
+\caption{ViT training curves. The dashed line marks epoch 10, the selected
+checkpoint. Validation accuracy exceeds 0.87 after a single epoch and
+plateaus within ten: the frozen ViT features are immediately usable and the
+3{,}076-parameter head has little left to learn thereafter.}
+\label{fig:vit-curves}
+\end{figure}
+
+The curves in Figure~\ref{fig:vit-curves} show the fastest convergence of
+our five approaches, consistent with the ablation's interpretation: the
+1k-finetuned CLS embedding is already organised for linear classification,
+so the head locks on within a few epochs and the remaining twenty epochs
+add only noise around the plateau. Training and validation accuracy track
+each other closely throughout, with no widening gap.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/ViT_tuning_confusion_matrix.png}
+  \\[0.2em] {\small (a) Tuning split (420 images)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/ViT_confusion_matrix.png}
+  \\[0.2em] {\small (b) Held-out set (400 images)}
+\end{minipage}
+\caption{ViT confusion matrices. Errors concentrate on the
+dense/sparse-residential boundary in both panels; on the held-out set the
+single largest error mode is 4 \texttt{sparse\_residential} images predicted
+as \texttt{dense\_residential}.}
+\label{fig:vit-cm}
+\end{figure}
+
+The confusion matrices (Figure~\ref{fig:vit-cm}) repeat the pattern seen
+across all five models: the dense-versus-sparse residential boundary --- a
+density judgement rather than a structural one --- absorbs most of the
+mistakes, while \texttt{coastal\_mansion} and \texttt{nursing\_home} are
+essentially never confused with each other.
+
+\paragraph{Checkpoint-selection bias is absent.}
+Repeating the tuning-versus-held-out comparison made for the previous
+models (Table~\ref{tab:vit-bias}), the ViT sits at the far end of the
+capacity spectrum: with only 3{,}076 trainable parameters, macro-$F_1$ is
+actually \emph{higher} on the held-out set than on the tuning split used to
+select the checkpoint ($+0.010$). The selection optimism visible in the
+custom CNN (6.3 points) and faintly in ResNet-50 (0.6 points) has here
+fallen below zero --- the model cannot meaningfully fit the idiosyncrasies
+of 420 tuning images, so the tuning signal transfers essentially unbiased.
+This completes the capacity-versus-trustworthiness relationship examined in
+Section~\ref{sec:comparative}.
+
+\begin{table}[H]
+\centering
+\caption{ViT per-class $F_1$ on the tuning split versus the held-out set.}
+\label{tab:vit-bias}
+\small
+\begin{tabular}{lccr}
+\toprule
+Class & Tuning & Held-out & $\Delta$ \\
+\midrule
+\texttt{coastal\_mansion}    & 0.950 & 0.980 & $+0.030$ \\
+\texttt{nursing\_home}       & 0.971 & 0.980 & $+0.009$ \\
+\texttt{sparse\_residential} & 0.947 & 0.951 & $+0.004$ \\
+\texttt{dense\_residential}  & 0.952 & 0.951 & $-0.001$ \\
+\midrule
+Macro-$F_1$ & 0.9549 & 0.9652 & $+0.0103$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Model Training and Tuning}
 % The shared protocol that makes the comparison FAIR: identical seed (42),
@@ -1190,7 +1323,6 @@ Jun Kiat            & EfficientNet-B0 --- transfer learning \\
 \bottomrule
 \end{tabular}
 \renewcommand{\arraystretch}{1}
-\end{table}
 \todo{need 1-2 page rn too little}
 %=====================================================================
 % 4. REFLECTION  (2–3 pages)
