@@ -152,13 +152,158 @@ We set ourselves six objectives:
 \end{enumerate}
 
 \subsection{Review of Existing Approaches}
-% Survey: CNNs for remote-sensing scene classification (AID/NWPU-RESISC45
-% literature), transfer learning from ImageNet, EfficientNet compound scaling,
-% MobileNet depthwise separable convolutions, Vision Transformers for images.
-% Cite properly \cite{...}. Also REGISTER every open-source library used
-% (TensorFlow/Keras, NumPy, scikit-learn, Streamlit, Docker...) with a one-line
-% justification — the spec explicitly requires this.
-\todo{Literature survey + library registration table}
+\label{sec:review}
+
+\subsubsection{From Handcrafted Descriptors to Learned Features}
+
+Early remote-sensing scene classification relied on handcrafted descriptors ---
+colour histograms, texture measures, and SIFT-based bag-of-visual-words
+representations. These encode low-level appearance and therefore struggle
+precisely where our partition is hardest: distinguishing categories that share
+the same visual vocabulary and differ only in spatial arrangement. The shift to
+learned representations after AlexNet \cite{Krizhevsky2012} resolved this by
+inferring features directly from data, and the remote-sensing literature has
+followed the same trajectory \cite{Zhu2017, Cheng2020}.
+
+The magnitude of the improvement is well documented. Kwenda et al.
+\cite{Kwenda2024} isolate it cleanly on aerial forest imagery: classical
+classifiers applied to raw pixels reach 0.646 accuracy, whereas the same
+classifiers applied to features extracted by a pretrained deep network reach
+0.940. Zhou et al. \cite{Zhou2018} report the same ordering on the benchmark
+used in this project, where CNN-derived features outperform handcrafted
+descriptors for retrieval. Both results motivate our decision to treat deep
+feature extraction, rather than feature engineering, as the foundation of every
+approach we investigate.
+
+\subsubsection{Benchmark Datasets}
+
+Progress in this field has been driven by successive benchmarks --- UC Merced,
+WHU-RS19, RSSCN7, AID, and NWPU-RESISC45 --- each larger or more finely
+categorised than the last. Our data comes from \textbf{PatternNet}
+\cite{Zhou2018}, a 38-class collection of 800 images per class at
+$256 \times 256$ pixels, gathered over US cities via Google Earth imagery and
+the Google Map API.
+
+One design property of PatternNet directly shapes this project. The dataset was
+constructed for \emph{image retrieval}, a task that rewards fine-grained
+category distinctions, so it deliberately separates classes that a
+coarser-grained benchmark would merge. Our partition inherits four such
+categories --- \texttt{coastal\_mansion}, \texttt{dense\_residential},
+\texttt{nursing\_home}, and \texttt{sparse\_residential} --- all of which are
+residential or institutional building scenes. The difficulty we report in
+Section~\ref{sec:results} is therefore intrinsic to the benchmark's design
+rather than incidental to our partition.
+
+\subsubsection{Convolutional Architectures}
+
+The systematic review by Shoaib et al. \cite{Shoaib2025}, covering 124 studies
+of deep learning for aerial imagery, identifies convolutional networks as the
+dominant family for classification, valued for accuracy and computational
+efficiency. Three developments in that family inform our choices.
+
+\textbf{Residual learning.} ResNet \cite{He2016} introduced skip connections so
+that each block learns a residual adjustment to its input, allowing gradients
+to propagate through very deep stacks. ResNet-50 remains a standard baseline
+with well-understood transfer behaviour, which is why we include it.
+
+\textbf{Compound scaling.} EfficientNet \cite{Tan2019} observes that network
+depth, width, and input resolution should be scaled together under a single
+coefficient rather than independently, yielding markedly better accuracy per
+parameter. Shoaib et al. \cite{Shoaib2025} single out this efficiency as
+important for high-resolution aerial data, where computational cost scales
+quickly with image size.
+
+\textbf{Efficiency-oriented design.} MobileNetV2 \cite{Sandler2018} factorises
+standard convolutions into depthwise and pointwise operations and adds inverted
+residual blocks with linear bottlenecks, reducing parameter count by an order of
+magnitude at modest accuracy cost. It represents the deployment-constrained end
+of the design space, and the development of such lightweight models is
+identified as a priority direction in \cite{Shoaib2025}.
+
+\subsubsection{Transfer Learning under Limited Supervision}
+
+With 700 training images per class, training a large network from random
+initialisation risks overfitting. The standard remedy is transfer learning:
+reusing representations learned on a large source corpus such as ImageNet.
+Shoaib et al. \cite{Shoaib2025} state the case directly --- pretrained models
+``provide robust feature representations that generalize well to aerial
+imagery,'' and this ``is especially important for scenarios with limited
+labeled data.''
+
+The practical question is how much of the network to adapt. Kwenda et al.
+\cite{Kwenda2024} take the conservative extreme, freezing VGG16 and ResNet-50
+entirely and training only a downstream classifier, and still obtain strong
+results. We adopt the same strategy for our three pretrained models: the
+backbone is frozen and only a small classification head is fitted. This
+suppresses overfitting on a small dataset and, equally important for our
+purpose, holds the amount of adaptation constant across the transfer-learning
+approaches so that the comparison reflects architecture rather than fine-tuning
+effort.
+
+\subsubsection{Attention and Vision Transformers}
+
+Vision Transformers \cite{Dosovitskiy2021} discard convolution entirely,
+partitioning an image into fixed patches and processing the resulting sequence
+with self-attention. Every patch can attend to every other from the first
+layer, capturing global spatial layout that a convolutional stack only reaches
+after many layers --- a property well matched to aerial scenes, where the
+discriminating cue is the arrangement of elements across the whole image.
+
+This capability carries a known cost. Shoaib et al. \cite{Shoaib2025} caution
+that transformers ``typically require large amounts of training data and
+computational resources, which can be a limitation in domains like aerial image
+analysis with limited annotated datasets.'' Whether that limitation binds at our
+dataset scale is one of the questions this study answers empirically
+(Section~\ref{sec:comparative}).
+
+\subsubsection{Positioning of This Work}
+
+The literature establishes that deep features outperform handcrafted ones, that
+transfer learning is the standard response to limited data, and that
+architectures differ in their accuracy-to-cost trade-offs. What it does not
+readily provide is a \emph{controlled} comparison: published results differ in
+input resolution, augmentation, optimiser, training schedule, and evaluation
+protocol, so architectural claims are difficult to isolate. This project
+addresses that gap on one dataset by fixing every such variable across five
+architectures and varying only the model, as detailed in
+Section~\ref{sec:splits} and Section~\ref{sec:augmentation}.
+
+\subsubsection{Open-Source Libraries Used}
+
+Table~\ref{tab:libraries} registers every third-party component used in this
+project. All are open-source and used under their respective licences; no
+pretrained checkpoint or code was used outside its intended terms.
+
+\begin{table}[H]
+\centering
+\caption{Open-source libraries and tools, with the role each plays.}
+\label{tab:libraries}
+\small
+\begin{tabular}{lll}
+\toprule
+Library & Version & Role in this project \\
+\midrule
+TensorFlow / Keras & $\geq$ 2.15 & Model definition, training, augmentation layers, checkpointing \\
+keras-hub & $\geq$ 0.3.0 & Pretrained Vision Transformer backbone \\
+scikit-learn & $\geq$ 1.3 & Precision, recall, $F_1$, and confusion-matrix computation \\
+NumPy & $\geq$ 1.24 & Array operations and metric aggregation \\
+pandas & $\geq$ 2.0 & Tabular summaries during exploratory analysis \\
+Matplotlib & $\geq$ 3.7 & Figures: sample grids, training curves, confusion matrices \\
+Pillow & $\geq$ 10.0 & Image loading and inspection for EDA \\
+pytest & $\geq$ 8.0 & Automated contract tests for the data and training pipelines \\
+Streamlit & 1.58.0 & Web interface for the deployed classifier \\
+Docker & --- & Containerisation of the deployed model (\texttt{python:3.12-slim}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Pretrained ImageNet weights for ResNet-50, EfficientNet-B0, and MobileNetV2 are
+obtained through the Keras applications module; the Vision Transformer backbone
+is obtained through keras-hub. All model definitions, the shared data pipeline,
+the augmentation policy, the training and evaluation entrypoints, the automated
+tests, and the deployment application were written by the team; our specific
+contributions and modifications are documented in
+Section~\ref{sec:contributions}.
 
 %=====================================================================
 % 2. MACHINE LEARNING SOLUTIONS  (15–18 pages, 60% criterion)
@@ -679,6 +824,7 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 % 3. INDIVIDUAL CONTRIBUTIONS  (1–2 pages)
 %=====================================================================
 \section{Individual Contributions}
+\label{sec:contributions}
 % One short paragraph per member: model owned, plus shared-infrastructure /
 % EDA / deployment / report work. Keep it concrete (branches: model/customcnn,
 % model/ResNet-50, model/effNet-b0, mobilenetv2, model/vit, feature/frontend).
