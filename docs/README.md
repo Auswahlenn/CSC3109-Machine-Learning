@@ -1,20 +1,34 @@
-# inf2007-exampleteam-2026-docs
+# CSC3109 final report
 
-This repository contains LaTeX templates for the **INF2007 Mobile Application Development** course at Singapore Institute of Technology (SIT).
+This directory contains the LaTeX source, bibliography, figures, and supporting
+notes for the CSC3109 Machine Learning group project.
 
-## Contents
+## Main files
 
-- **`proposal.tex`** - Project proposal template (2-3 pages excluding references). Covers project idea and motivation, related work, software architecture design, and implementation plan.
-- **`final-report.tex`** - Final report template (max 25 pages excluding appendix). Covers introduction, literature review, system architecture, implementation, project management, testing and evaluation, and conclusion.
-- **`titlepage.tex`** - Shared title page with SIT branding.
-- **`includes.tex`** - Common LaTeX package imports and formatting configuration.
-- **`notation.tex`** - Short-hand notation and macros.
-- **`mybib.bib`** - Bibliography file for references.
-- **`figures/`** - Images including SIT logos and other figures.
-- **`dsfont.sty`**, **`kpfonts.sty`** - Font style packages.
+- `final-report.tex` - integrated final report.
+- `mybib.bib` - bibliography used by the report.
+- `figures/` - EDA samples, model curves, confusion matrices, and deployment
+  evidence.
+- `IMPLEMENTATION_SUMMARY.md` - verified implementation and deployment status.
+- `titlepage.tex`, `includes.tex`, `notation.tex` - shared report formatting.
 
-## Usage
+## Build
 
-1. Edit `proposal.tex` or `final-report.tex` and fill in your project details.
-2. Update the author names and student IDs in the `\reportauthorOne`, `\cidOne`, etc. commands.
-3. Compile with a LaTeX distribution (e.g., `pdflatex proposal.tex` or `pdflatex final-report.tex`).
+Compile from this directory with a LaTeX distribution that provides `pdflatex`,
+BibTeX, and `latexmk`:
+
+```powershell
+Set-Location docs
+latexmk -pdf final-report.tex
+```
+
+The final verification should include:
+
+1. a successful build with resolved citations and references;
+2. a page count within the coursework maximum;
+3. visual inspection of every rendered page;
+4. confirmation that the deployment screenshot and all model figures are
+   legible.
+
+Generated auxiliary files are build outputs. The submission PDF should follow
+the team-number naming convention in the coursework specification.

@@ -2456,8 +2456,8 @@ ViT-B/16        & $10^{-3}$ & 0.3 & frozen backbone & 3{,}076 \\
 
 \begin{verbatim}
 CSC3109-Machine-Learning/
-|- data/set 23/          provided training data (700 images x 4 classes)
-|- data/val 23/          sealed held-out set (100 images x 4 classes)
+|- dataset/set 23/       provided training data (700 images x 4 classes)
+|- dataset/val 23/       sealed held-out set (100 images x 4 classes)
 |- shared/               frozen team contract: config, data splits,
 |                        augmentation policy, evaluate()
 |- models/<name>/        one module per approach exposing
@@ -2475,7 +2475,7 @@ CSC3109-Machine-Learning/
 \subsection{Reproduction Instructions}
 
 All results in this report can be regenerated from the repository root.
-The dataset directories are expected under \texttt{data/} (override with the
+The dataset directories are expected under \texttt{dataset/} (override with the
 \texttt{CSC3109\_DATA\_DIR} environment variable).
 
 \begin{verbatim}

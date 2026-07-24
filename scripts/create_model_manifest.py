@@ -10,7 +10,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = ROOT / "results"
-CHECKPOINT = RESULTS_DIR / "efficientnet_b0_final_best.keras"
+CHECKPOINT = RESULTS_DIR / "efficientnet_b0_best.keras"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -27,10 +27,10 @@ def sha256(path: Path) -> str:
 
 
 def main() -> None:
-    run = load_json(RESULTS_DIR / "efficientnet_b0_final_run.json")
-    metrics = load_json(RESULTS_DIR / "efficientnet_b0_final.json")
+    run = load_json(RESULTS_DIR / "efficientnet_b0_run.json")
+    metrics = load_json(RESULTS_DIR / "efficientnet_b0.json")
     manifest = {
-        "model_name": "efficientnet_b0_final",
+        "model_name": "efficientnet_b0",
         "checkpoint": CHECKPOINT.name,
         "checkpoint_bytes": CHECKPOINT.stat().st_size,
         "checkpoint_sha256": sha256(CHECKPOINT),
@@ -42,10 +42,10 @@ def main() -> None:
         "training_git_commit": run["git_commit"],
         "held_out_accuracy": metrics["accuracy"],
         "held_out_macro_f1": metrics["macro"]["f1"],
-        "metrics_file": "efficientnet_b0_final.json",
-        "run_metadata_file": "efficientnet_b0_final_run.json",
+        "metrics_file": "efficientnet_b0.json",
+        "run_metadata_file": "efficientnet_b0_run.json",
     }
-    output = RESULTS_DIR / "efficientnet_b0_final_manifest.json"
+    output = RESULTS_DIR / "efficientnet_b0_manifest.json"
     output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
