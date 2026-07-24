@@ -9,7 +9,7 @@ Verified from the integrated `main` branch on 24 July 2026.
 | Data protocol | Deterministic train/tuning split with isolated held-out evaluation | `shared/data.py`, `tests/test_data_contract.py` |
 | Model comparison | Five final model runs under the shared training contract | `models/`, `results/*_run.json` |
 | Evaluation | Accuracy, macro and per-class precision/recall/F1, confusion matrices | `shared/evaluate.py`, `results/` |
-| Deployment | EfficientNet-B0 served by a Streamlit UI in Docker | `dockerfile`, `frontend/`, `docs/figures/deployment_ui.png` |
+| Deployment | EfficientNet-B0 served by a Streamlit UI in Docker | `Dockerfile`, `frontend/`, `docs/figures/deployment_ui.png` |
 | Automated checks | Data, training, deployment-path, model-loading, and inference contracts | `tests/` |
 | Report | Full LaTeX report with model analyses and live deployment evidence | `docs/final-report.tex` |
 
@@ -66,7 +66,7 @@ FastAPI service.
   checkpoint loading, and probability validation.
 - `frontend/web.py` provides image upload, predicted label, confidence, and a
   complete four-class score chart.
-- `dockerfile` copies only `efficientnet_b0_best.keras` and exposes port 8501.
+- `Dockerfile` copies only `efficientnet_b0_best.keras` and exposes port 8501.
 - The Docker health check polls Streamlit's `/_stcore/health` endpoint.
 - The reviewed image
   `sha256:8648dd37edb4b2637d1d6911da19e8b1bb6840a9e90a5895fc234bf5006ce45`

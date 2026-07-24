@@ -105,7 +105,7 @@ JSON/PNG get committed.
 
 The checked-in deployment configuration consistently targets the selected
 `results/efficientnet_b0_best.keras` checkpoint in `.dockerignore`,
-`dockerfile`, and `frontend/inference.py`.
+`Dockerfile`, and `frontend/inference.py`.
 
 **Build Image**
 

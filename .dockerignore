@@ -6,7 +6,7 @@ docs
 eda.html
 eda.ipynb
 results/*
-# Re-include only the checkpoint the image actually serves (see dockerfile COPY).
+# Re-include only the checkpoint the image actually serves (see Dockerfile COPY).
 !results/efficientnet_b0_best.keras
 __pycache__
 *.pyc

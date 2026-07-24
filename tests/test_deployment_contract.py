@@ -27,7 +27,7 @@ class FixedProbabilityModel:
 
 
 def test_deployment_targets_selected_efficientnet_checkpoint() -> None:
-    dockerfile = (ROOT / "dockerfile").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert MODEL_PATH == ROOT / "results" / "efficientnet_b0_best.keras"
     assert (

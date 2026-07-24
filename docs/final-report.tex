@@ -1991,7 +1991,7 @@ would itself constitute test-set leakage under our protocol.
 
 \section{Deployment via Containerisation}
 \label{sec:deployment}
-% NOTE: the dockerfile, .dockerignore allow-list, and frontend/web.py MODEL_PATH
+% NOTE: the Dockerfile, .dockerignore allow-list, and frontend/web.py MODEL_PATH
 % must all point at efficientnet_b0_best.keras before the final build.
 
 A model that exists only as a checkpoint in a researcher's working directory is
@@ -2478,7 +2478,7 @@ CSC3109-Machine-Learning/
 |- results/              per-run JSON metrics, metadata, curves,
 |                        confusion matrices, checkpoints
 |- frontend/web.py       Streamlit inference UI
-|- dockerfile            deployment image (python:3.12-slim)
+|- Dockerfile            deployment image (python:3.12-slim)
 |- eda.ipynb             exploratory data analysis
 |- docs/                 this report
 \end{verbatim}
