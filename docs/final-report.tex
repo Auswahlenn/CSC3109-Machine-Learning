@@ -2094,23 +2094,28 @@ through the container image instead; a \texttt{.dockerignore} allow-list admits
 only the single checkpoint being served, keeping the other models' weights out
 of the build context.
 
-% TODO: insert UI screenshot once captured, e.g.
-% \begin{figure}[htbp]\centering
-%   \includegraphics[width=0.8\linewidth]{docs/figures/deployment_ui.png}
-%   \caption{Streamlit interface: uploaded aerial image, predicted class, and
-%   per-class confidence scores.}\label{fig:deployment-ui}
-% \end{figure}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{docs/figures/deployment_ui.png}
+\caption{Running Streamlit interface in the Docker container. A held-out coastal
+mansion image is classified correctly at 96.3\% confidence, and the full
+four-class probability distribution is displayed below the prediction.}
+\label{fig:deployment-ui}
+\end{figure}
 
 \subsection{Verification and Limitations}
 
-Deployment is verified by building the image, running the container, and
-uploading held-out aerial images through the interface to confirm that the
-predicted labels and confidence scores match those produced by the evaluation
-pipeline. Separately, the repository includes automated contract tests
-(\texttt{tests/}) covering the shared data pipeline and the training
-entrypoint; these guard the components that produce the deployed artifact, and
-they establish that the split is deterministic, disjoint, and correctly
-excludes the duplicate images identified in Section~\ref{sec:splits}.
+Deployment was verified by building the image, starting the container, receiving
+HTTP 200 from its health endpoint, and submitting the held-out image shown in
+Figure~\ref{fig:deployment-ui}. The running service loaded the selected
+EfficientNet-B0 checkpoint and returned \texttt{coastal\_mansion} at 96.3\%
+confidence. The repository also includes automated contract tests
+(\texttt{tests/}) for the shared data and training pipelines plus the deployed
+model path, checkpoint deserialisation, image preprocessing, output shape, and
+probability normalisation. These tests establish that the data split is
+deterministic and disjoint, that the duplicate-label conflict is excluded, and
+that the model served by Docker follows the same raw-input and fixed-class
+contracts used during evaluation.
 
 Two limitations should be acknowledged. First, the interface itself is not
 covered by automated tests --- verification is manual, through the running
