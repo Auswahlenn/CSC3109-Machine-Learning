@@ -9,9 +9,9 @@
 \newcommand{\reportauthorThree}{Kaiser Yee}
 \newcommand{\cidThree}{2400821, 3070609Y}
 \newcommand{\reportauthorFour}{Tan Jian Xin}
-\newcommand{\cidFour}{XXXXXXX, XXXXXXXX}
+\newcommand{\cidFour}{2401421, 3070651T}
 \newcommand{\reportauthorFive}{Jun Kiat}
-\newcommand{\cidFive}{XXXXXXX, XXXXXXXX}
+\newcommand{\cidFive}{2403339, 3070561T}
 \newcommand{\reporttype}{Coursework}
 \bibliographystyle{plain}
 
@@ -45,7 +45,15 @@ Until the early 2010s this problem was tackled with handcrafted features: colour
 
 The dataset used in this project makes the task harder in two specific ways. First, the four classes --- \texttt{coastal\_mansion}, \texttt{dense\_residential}, \texttt{nursing\_home}, and \texttt{sparse\_residential} --- all look visually similar to each other when seen from above. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to pick up on layout, not just presence of things. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pre-trained models are central to our approach rather than optional extras.
 
-We also cared about two things beyond accuracy. One is fair comparison: architecture papers are often hard to compare because they differ in input resolution, augmentation, training schedule, or evaluation setup, so we fixed all of these across our experiments and varied only the architecture. The other is deployment; a model is only useful if it can actually be run somewhere. So we packaged the best-performing model as a containerized inference service rather than leaving it as a notebook result.
+We also cared about two things beyond accuracy. One is fair comparison:
+architecture papers are often hard to compare because they differ in data
+splits, augmentation, training budgets, or evaluation setup, so we fixed those
+factors across our experiments and documented the few architecture-specific
+differences (preprocessing, effective backbone resolution, and the custom
+CNN's learning-rate schedule). The other is deployment; a model is only useful
+if it can actually be run somewhere. So we packaged the best-performing model
+as a containerized inference service rather than leaving it as a notebook
+result.
 
 \subsection{Problem Statement}
 Each team in this cohort is assigned a partition of a 38-category aerial-imagery benchmark. The class names, the 800 images per class, and the native $256 \times 256$ pixel resolution identify the source as \textbf{PatternNet}, a high-resolution dataset collected mainly over US cities from Google Earth and Google Map API imagery. Our partition (\emph{set 23}) contains four categories:
@@ -144,8 +152,9 @@ We set ourselves six objectives:
   from-scratch CNN baseline, three pretrained CNN families (ResNet-50,
   EfficientNet-B0, MobileNetV2), and a vision transformer.
   \item \textbf{O4: Compare fairly.} Train every model with the same seed,
-  input size, augmentation, batch size, epoch budget, and early-stopping
-  patience, so that differences in results come from the architectures.
+  dataset split, raw input size, augmentation, batch size, epoch budget, and
+  early-stopping patience, while explicitly documenting necessary
+  architecture-specific preprocessing and optimisation choices.
   \item \textbf{O5: Maximise held-out performance.} Get the best accuracy
   and macro-$F_1$ we can, and use confusion matrices to understand the
   remaining errors.
@@ -1043,10 +1052,353 @@ relationship is examined across all five models in
 Section~\ref{sec:comparative}.
 
 \subsection{EfficientNet-B0 (transfer learning)}
-\todo{}
+\label{sec:efficientnet}
+
+EfficientNet was designed around a different question from ResNet: once a
+competent convolutional network exists, how should additional computation be
+distributed between depth, width, and input resolution? Tan and Le
+\cite{Tan2019} show that scaling only one dimension produces an unbalanced
+network and propose a compound coefficient that increases all three together.
+EfficientNet-B0 is the neural-architecture-search baseline from which the larger
+B1--B7 family is scaled. Its main operator is the mobile inverted bottleneck
+(MBConv), inherited from MobileNetV2, augmented with squeeze-and-excitation
+channel attention.
+
+That design makes B0 a useful contrast to both ResNet-50 and MobileNetV2 in this
+study. Against ResNet-50 it asks whether a much smaller, explicitly
+efficiency-designed backbone can preserve fine-grained accuracy. Against
+MobileNetV2 it asks whether squeeze-and-excitation and EfficientNet's searched
+stage allocation buy accuracy beyond the common MBConv foundation.
+
+\subsubsection{Architecture and Adaptation}
+
+The Keras ImageNet checkpoint is used without its original 1,000-class head.
+Global average pooling produces a 1,280-dimensional representation, followed by
+the same dropout-plus-softmax head used for MobileNetV2. The complete
+configuration is shown in Table~\ref{tab:efficientnet-config}.
+
+\begin{table}[H]
+\centering
+\caption{EfficientNet-B0 model configuration.}
+\label{tab:efficientnet-config}
+\small
+\begin{tabular}{ll}
+\toprule
+Stage & Details \\
+\midrule
+Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB \\
+Augmentation & shared team policy, active during training only \\
+Preprocessing & Keras EfficientNet input handling inside the saved graph \\
+Backbone & EfficientNet-B0, ImageNet weights, frozen, global average pooling \\
+Head & dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
+Parameters & 4{,}054{,}695 total; 5{,}124 trainable \\
+Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Only 5,124 parameters --- 0.13\% of the network --- are updated. This is a
+deliberate transfer-learning decision rather than a computational shortcut. The
+training subset has 2,378 images, too few to estimate four million backbone
+parameters reliably, while the ImageNet filters already encode edges, textures,
+repeated structures, and spatial compositions relevant to aerial scenes.
+Freezing also keeps the evaluation aligned with the other pretrained CNNs:
+their representation quality is compared under a common four-class head rather
+than confounded by different fine-tuning depths.
+
+Our implementation makes three project-specific modifications. First, it
+accepts the shared native $256\times256$ input rather than the paper's
+$224\times224$ baseline resolution; global pooling permits this without
+changing the classifier dimensions. Second, the shared aerial augmentation is
+embedded before EfficientNet's preprocessing so the saved checkpoint accepts
+raw images in both training and deployment. Third, the original 1,000-class
+classifier is replaced by a four-class head whose dropout and learning rate
+were exposed through the shared experiment interface. The selected values were
+chosen from the internal tuning split before the held-out evaluation.
+
+\subsubsection{Position against Published Architectures}
+
+The ImageNet figures in Table~\ref{tab:efficientnet-paper} are included to
+position the architecture, not to compare dataset difficulty with our
+four-class PatternNet partition. In the original paper, B0 matches or slightly
+exceeds substantially larger models at the same ImageNet accuracy level
+\cite{Tan2019}.
+
+\begin{table}[H]
+\centering
+\caption{Published ImageNet positioning of EfficientNet-B0 against architectures
+not otherwise implemented in this project, reproduced from \cite{Tan2019}.}
+\label{tab:efficientnet-paper}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Architecture & Top-1 & Parameters & FLOPs \\
+\midrule
+EfficientNet-B0 & 76.3\% & 5.3M & 0.39B \\
+ResNet-50       & 76.0\% & 26M  & 4.1B \\
+DenseNet-169    & 76.2\% & 14M  & 3.5B \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The comparison explains why B0 was a sensible candidate before seeing our
+results: its published advantage is not a claim of universally higher
+accuracy, but a claim of better accuracy per unit of model capacity and
+computation. Our study tests whether that efficiency transfers to a
+fine-grained remote-sensing task under a frozen-backbone protocol. The answer is
+positive within our five-model scope: B0 uses about one sixth of ResNet-50's
+parameters yet finishes one image ahead on the 400-image held-out set. That
+one-image difference is not statistically sufficient to establish universal
+superiority, but the parameter reduction remains material regardless of that
+ordering.
+
+\subsubsection{Results}
+
+Training used batch size 16, a 32-epoch budget, and early-stopping patience 20.
+The highest tuning accuracy occurred at epoch 32, so the final checkpoint lies
+at the boundary of the budget rather than at an early plateau. Figure
+\ref{fig:efficientnet-curves} shows rapid transfer in the first epochs followed
+by smaller improvements throughout training. Validation accuracy rises from
+0.905 after epoch 1 to 0.969 at epoch 32 while validation loss continues to
+decline, providing no evidence of late-stage divergence.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/efficientnet_b0_curves.png}
+\caption{EfficientNet-B0 training curves. The dashed line marks epoch 32, the
+selected checkpoint. The absence of a late validation-loss increase supports
+the frozen-backbone choice, although the boundary optimum suggests that a
+longer pre-registered epoch budget is worth testing in future work.}
+\label{fig:efficientnet-curves}
+\end{figure}
+
+On the held-out set EfficientNet-B0 achieves \textbf{97.75\% accuracy} and
+\textbf{0.9775 macro-$F_1$}, the highest observed values in this study. It
+misclassifies 9 of 400 images. All four class $F_1$ values are at least 0.970:
+\texttt{coastal\_mansion} reaches 0.985,
+\texttt{nursing\_home} 0.980, \texttt{sparse\_residential} 0.976, and
+\texttt{dense\_residential} 0.970. The largest cell off the diagonal is three
+dense-residential images predicted as sparse residential, matching the density
+boundary identified during EDA.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/efficientnet_b0_tuning_confusion_matrix.png}
+  \\[0.2em] {\small (a) Tuning split (420 images)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/efficientnet_b0_confusion_matrix.png}
+  \\[0.2em] {\small (b) Held-out set (400 images)}
+\end{minipage}
+\caption{EfficientNet-B0 confusion matrices. Errors remain sparse across both
+splits; the held-out set contains 9 errors versus 13 on the tuning split.}
+\label{fig:efficientnet-cm}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{EfficientNet-B0 per-class $F_1$ on tuning and held-out data.}
+\label{tab:efficientnet-bias}
+\small
+\begin{tabular}{lccr}
+\toprule
+Class & Tuning & Held-out & $\Delta$ \\
+\midrule
+\texttt{coastal\_mansion}    & 0.967 & 0.985 & $+0.018$ \\
+\texttt{dense\_residential}  & 0.971 & 0.970 & $-0.001$ \\
+\texttt{nursing\_home}       & 0.976 & 0.980 & $+0.004$ \\
+\texttt{sparse\_residential} & 0.962 & 0.976 & $+0.013$ \\
+\midrule
+Macro-$F_1$ & 0.9691 & 0.9775 & $+0.0084$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The positive held-out delta should not be interpreted as evidence that the
+held-out set is easier in general: it is only a 400-image sample, and the
+absolute difference is approximately three correctly classified images.
+Instead, the close tuning/held-out agreement shows that the 5,124-parameter
+head did not specialise strongly to the tuning subset. EfficientNet-B0's main
+weakness is therefore not observed overfitting but unfinished convergence: the
+best epoch is the last available epoch. A longer schedule or partial
+fine-tuning may improve it, but those are future experiments and cannot be
+introduced after inspecting held-out errors.
+
 \subsection{MobileNetV2 (transfer learning)}
-% 2.3M total / 5.1K trainable — efficiency-oriented baseline.
-\todo{}
+\label{sec:mobilenet}
+
+MobileNetV2 is the explicitly resource-constrained member of our comparison.
+Its basic unit is an inverted residual with a linear bottleneck
+\cite{Sandler2018}. A conventional residual block compresses a wide
+representation and then expands it again; MobileNetV2 reverses that pattern.
+Each block expands a narrow input with a $1\times1$ convolution, filters the
+expanded channels independently with a depthwise $3\times3$ convolution, and
+projects them linearly back to a narrow output. Skip connections join the thin
+bottlenecks when shape and stride permit.
+
+Two details are important. Depthwise separable convolution avoids paying for a
+full spatial kernel across every input-output channel pair, while the linear
+final projection avoids destroying information with ReLU in the
+low-dimensional bottleneck. The source paper reports that a $3\times3$
+depthwise-separable operation is roughly eight to nine times cheaper than a
+standard convolution at comparable channel dimensions \cite{Sandler2018}.
+This makes MobileNetV2 a principled efficiency baseline rather than simply a
+smaller arbitrary CNN.
+
+\subsubsection{Architecture and Adaptation}
+
+\begin{table}[H]
+\centering
+\caption{MobileNetV2 model configuration.}
+\label{tab:mobilenet-config}
+\small
+\begin{tabular}{ll}
+\toprule
+Stage & Details \\
+\midrule
+Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB \\
+Augmentation & shared team policy, active during training only \\
+Preprocessing & MobileNetV2 \texttt{preprocess\_input}, mapping to $[-1,1]$ \\
+Backbone & MobileNetV2 width 1.0, ImageNet weights, frozen, global average pooling \\
+Head & dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
+Parameters & 2{,}263{,}108 total; 5{,}124 trainable \\
+Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The implementation uses the standard width multiplier 1.0 backbone without its
+ImageNet classifier. As with EfficientNet-B0, only the 5,124-parameter head is
+trained. The shared augmentation is followed by MobileNetV2 preprocessing
+inside the model graph, so training, held-out evaluation, and deployment all
+consume the same raw $[0,255]$ input contract. The project-specific changes are
+the native $256\times256$ input, four-class head, shared augmentation, frozen
+feature-extraction policy, and common experiment metadata. These changes retain
+the source architecture while adapting its input and output contracts to the
+assigned aerial partition.
+
+\subsubsection{Position against Published Mobile Models}
+
+Table~\ref{tab:mobilenet-paper} reproduces the source paper's ImageNet
+comparison with architectures outside our project \cite{Sandler2018}. These
+numbers compare resource design points on ImageNet and must not be read as
+baselines for our PatternNet accuracy.
+
+\begin{table}[H]
+\centering
+\caption{Published ImageNet positioning of MobileNetV2 against mobile
+architectures not implemented in this project, from \cite{Sandler2018}. CPU
+latency is measured by the authors on one Google Pixel~1 core.}
+\label{tab:mobilenet-paper}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Architecture & Top-1 & Parameters & MAdds & CPU latency \\
+\midrule
+MobileNetV1       & 70.6\% & 4.2M & 575M & 113\,ms \\
+ShuffleNet (1.5)  & 71.5\% & 3.4M & 292M & --- \\
+NASNet-A          & 74.0\% & 5.3M & 564M & 183\,ms \\
+MobileNetV2       & 72.0\% & 3.4M & 300M & 75\,ms \\
+MobileNetV2 (1.4) & 74.7\% & 6.9M & 585M & 143\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The paper's width-1.0 MobileNetV2 improves on MobileNetV1 while reducing
+parameters, operations, and measured latency; NASNet-A is more accurate but
+larger and slower on the cited device. Our study does not reproduce those
+hardware measurements, so we make no latency claim for our container. What we
+can verify directly is model capacity: with its ImageNet head removed, our
+MobileNetV2 has 2.26M parameters, the smallest of the five approaches. It
+therefore establishes the low-capacity end of our own accuracy-versus-size
+comparison.
+
+\subsubsection{Results}
+
+MobileNetV2 trains for all 32 requested epochs and selects epoch 30. Its first
+tuning accuracy is already 0.871, rises past 0.90 at epoch 2, and reaches 0.943
+at the selected checkpoint. Figure~\ref{fig:mobilenet-curves} shows a noisier
+validation trajectory than EfficientNet-B0. This is consistent with scoring a
+small 420-image tuning set: a change of one prediction moves accuracy by about
+0.24 percentage points, so visible oscillation need not imply unstable
+optimisation.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/mobilenetv2_curves.png}
+\caption{MobileNetV2 training curves. The dashed line marks epoch 30, the
+selected checkpoint. Training continues to improve gradually while tuning
+accuracy oscillates within a narrow band near the end of the run.}
+\label{fig:mobilenet-curves}
+\end{figure}
+
+On held-out data MobileNetV2 reaches \textbf{95.75\% accuracy} and
+\textbf{0.9576 macro-$F_1$}, corresponding to 17 errors. This is fourth in raw
+accuracy but first in compactness. The result is therefore not a failed attempt
+to maximise the leaderboard; it quantifies the cost of choosing the smallest
+deployable representation in the study. Relative to EfficientNet-B0,
+MobileNetV2 gives up 2.0 accuracy points while using 44\% fewer parameters.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/mobilenetv2_tuning_confusion_matrix.png}
+  \\[0.2em] {\small (a) Tuning split (420 images)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{docs/figures/mobilenetv2_confusion_matrix.png}
+  \\[0.2em] {\small (b) Held-out set (400 images)}
+\end{minipage}
+\caption{MobileNetV2 confusion matrices. The held-out matrix shifts from
+coastal/sparse errors toward dense-residential images predicted as nursing
+home, showing that the aggregate score hides a changed error mechanism.}
+\label{fig:mobilenet-cm}
+\end{figure}
+
+The held-out per-class pattern is uneven despite the balanced dataset.
+\texttt{coastal\_mansion} is strongest at $F_1=0.975$.
+\texttt{dense\_residential} and \texttt{nursing\_home} both fall near 0.948:
+seven dense-residential images are predicted as nursing home, while the latter
+retains 0.99 recall at the cost of 0.908 precision. The model has therefore
+learned a permissive nursing-home decision region that captures nearly every
+true nursing home but also absorbs dense residential complexes with similar
+large-building layouts.
+
+\begin{table}[H]
+\centering
+\caption{MobileNetV2 per-class $F_1$ on tuning and held-out data.}
+\label{tab:mobilenet-bias}
+\small
+\begin{tabular}{lccr}
+\toprule
+Class & Tuning & Held-out & $\Delta$ \\
+\midrule
+\texttt{coastal\_mansion}    & 0.912 & 0.975 & $+0.063$ \\
+\texttt{dense\_residential}  & 0.937 & 0.948 & $+0.012$ \\
+\texttt{nursing\_home}       & 0.981 & 0.947 & $-0.034$ \\
+\texttt{sparse\_residential} & 0.942 & 0.960 & $+0.018$ \\
+\midrule
+Macro-$F_1$ & 0.9429 & 0.9576 & $+0.0147$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The macro score rises on held-out data, but the class-level reversal is the
+more informative result: the tuning split understates coastal performance and
+overstates nursing-home precision. MobileNetV2's principal strength is the
+verified parameter reduction with only a modest accuracy cost. Its weakness is
+less separation between dense residential and institution-scale buildings,
+suggesting that the compact representation discards some of the global layout
+detail retained by EfficientNet-B0 and ResNet-50. Partial fine-tuning of the
+last inverted-residual stages is the natural next experiment, but it must be
+selected on internal tuning data rather than fitted in response to these
+held-out confusions.
+
 \subsection{Vision Transformer (ViT)}
 % 85.8M total / 3.1K trainable; input resize fix; attention-based contrast
 % to the convolutional models.
@@ -1641,13 +1993,16 @@ per-class confidence scores.
 
 \subsection{Deployed Model}
 
-The deployed classifier is \textbf{EfficientNet-B0}, selected on held-out
-macro-$F_1$ (0.9775, Section~\ref{sec:results}). It is also the most practical
-choice independently of accuracy: at 4.05M parameters its checkpoint is roughly
-an order of magnitude smaller than the custom CNN's 304\,MB, which materially
-affects image size, registry push time, and container start-up. Selecting on the
-sealed held-out set rather than the tuning split matters here --- the deployment
-decision inherits the same evidential standard as the rest of the study.
+The deployed classifier is \textbf{EfficientNet-B0}. Every architecture and
+checkpoint was fixed using the internal tuning split before the five frozen
+models were evaluated once on held-out data. EfficientNet-B0 then produced the
+highest held-out macro-$F_1$ (0.9775, Section~\ref{sec:results}) and was packaged
+as the assignment's best-performing demonstrator. This post-evaluation
+packaging decision did not feed back into training, hyper-parameter selection,
+or another held-out run. It is also a practical choice independently of the
+one-image lead over ResNet-50: at 4.05M parameters its checkpoint is roughly an
+order of magnitude smaller than the custom CNN's 304\,MB, which materially
+affects image size, registry push time, and container start-up.
 
 \subsection{Container Architecture}
 
