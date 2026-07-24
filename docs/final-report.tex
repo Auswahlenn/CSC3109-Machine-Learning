@@ -1,13 +1,17 @@
 \documentclass[11pt,twoside,a4paper]{article}
 %NOTE: This report format is 
 
-\newcommand{\reporttitle}{Group 23: {Your title}}
+\newcommand{\reporttitle}{Group 23: A Controlled Comparison of Five Deep Learning Architectures for Fine-Grained Aerial Scene Classification}
 \newcommand{\reportauthorOne}{Pang Jia De}
 \newcommand{\cidOne}{2402226, 3070684P}
 \newcommand{\reportauthorTwo}{Daryl Chong Han Kin}
 \newcommand{\cidTwo}{2400619, 3070590C}
 \newcommand{\reportauthorThree}{Kaiser Yee}
 \newcommand{\cidThree}{2400821, 3070609Y}
+\newcommand{\reportauthorFour}{Tan Jian Xin}
+\newcommand{\cidFour}{XXXXXXX, XXXXXXXX}
+\newcommand{\reportauthorFive}{Jun Kiat}
+\newcommand{\cidFive}{XXXXXXX, XXXXXXXX}
 \newcommand{\reporttype}{Coursework}
 \bibliographystyle{plain}
 
@@ -39,7 +43,7 @@ Earth-observation satellites, aerial surveys, and high-resolution basemaps now p
 
 Until the early 2010s this problem was tackled with handcrafted features: colour histograms, texture descriptors, SIFT-based bag-of-visual-words. These worked reasonably well for coarse distinctions but stalled because they describe low-level appearance rather than the structure of a scene. Deep convolutional networks changed that by learning features directly from data instead of relying on hand-designed ones. Since AlexNet's ImageNet result \cite{Krizhevsky2012}, they have taken over image classification generally, and the remote-sensing literature shows the same pattern: deep models are now standard on aerial scene classification benchmarks \cite{Cheng2020}.
 
-The dataset used in this project makes the task harder in two specific ways. First, the four classes: \texttt{coastal\_mansion}, \quad \texttt{dense\_residential}, \quad \texttt{nursing\_home}, \quad \texttt{sparse\_residential}, all seen from above look visually similar to each other. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to pick up on layout, not just presence of things. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pre-trained models are central to our approach rather than optional extras.
+The dataset used in this project makes the task harder in two specific ways. First, the four classes --- \texttt{coastal\_mansion}, \texttt{dense\_residential}, \texttt{nursing\_home}, and \texttt{sparse\_residential} --- all look visually similar to each other when seen from above. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to pick up on layout, not just presence of things. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pre-trained models are central to our approach rather than optional extras.
 
 We also cared about two things beyond accuracy. One is fair comparison: architecture papers are often hard to compare because they differ in input resolution, augmentation, training schedule, or evaluation setup, so we fixed all of these across our experiments and varied only the architecture. The other is deployment; a model is only useful if it can actually be run somewhere. So we packaged the best-performing model as a containerized inference service rather than leaving it as a notebook result.
 
@@ -1107,6 +1111,7 @@ pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
 matching how this checkpoint was pretrained.
 
 \paragraph{Pretraining-source ablation.}
+\label{sec:vit-ablation}
 The choice of pretrained weights was validated experimentally rather than
 assumed. The selected checkpoint was pretrained on ImageNet-21k and then
 finetuned on ImageNet-1k; we compared it against the raw ImageNet-21k
@@ -1236,22 +1241,166 @@ Macro-$F_1$ & 0.9549 & 0.9652 & $+0.0103$ \\
 \end{table}
 
 \section{Model Training and Tuning}
-% The shared protocol that makes the comparison FAIR: identical seed (42),
-% batch size 16, image size 256, max 32 epochs, early stopping patience 20,
-% best-epoch checkpointing on tuning accuracy. Per-model hyper-parameters
-% (dropout 0.3, lr 1e-3 where applicable) and how they were chosen.
-% Include training/validation curves (results/<name>_curves.png) and comment
-% on convergence: e.g. ViT best epoch 10 vs MobileNetV2 best epoch 30.
-% Hardware note: mixed GPU (WSL) and CPU training; wall-clock times.
-\todo{Training protocol + curves}
+\label{sec:training}
+
+\subsection{Shared Training Protocol}
+
+Every final run in this report was produced by a single training entrypoint,
+\texttt{train.py}, rather than by five separate scripts. Each model is a module
+under \texttt{models/} that exposes one function,
+\texttt{build\_model(num\_classes, augmentation)}; the entrypoint injects the
+shared augmentation pipeline, builds the shared data splits, trains, selects a
+checkpoint, and writes results in a fixed schema. A member cannot accidentally
+train on a different split, augmentation policy, or evaluation procedure,
+because none of those are implemented in the per-model code.
+Table~\ref{tab:protocol} lists the variables held constant across all five
+final runs.
+
+\begin{table}[H]
+\centering
+\caption{Controlled variables shared by all five final training runs.}
+\label{tab:protocol}
+\small
+\begin{tabular}{ll}
+\toprule
+Variable & Value \\
+\midrule
+Random seed & 42, with deterministic TensorFlow ops enabled \\
+Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB \\
+Data split & identical stratified 85/15 train/tuning split (Section~\ref{sec:splits}) \\
+Augmentation & shared policy of Section~\ref{sec:augmentation}, training stream only \\
+Batch size & 16 \\
+Epoch budget & 32 \\
+Early stopping & patience 20, monitoring tuning accuracy \\
+Checkpointing & best epoch by tuning accuracy, best weights restored \\
+Optimiser family & Adam \\
+Loss & categorical cross-entropy over one-hot labels \\
+Framework & TensorFlow 2.21.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Checkpoint selection and early stopping both monitor accuracy on the internal
+tuning split; the held-out set is reachable only through a separate loader
+behind an explicit \texttt{--evaluate-held-out} flag, as described in
+Section~\ref{sec:splits}. Reproducibility is enforced at two levels: the
+shared \texttt{set\_seed()} seeds every random number generator and enables
+TensorFlow's deterministic kernels, and every run writes a metadata record
+(\texttt{results/<run>\_run.json}) capturing the git commit, seed, split
+counts including the excluded duplicate files, total and trainable parameter
+counts, best epoch, wall-clock duration, TensorFlow version, and visible GPUs.
+Any number in this report can therefore be traced back to the exact code and
+data state that produced it.
+
+Two per-model extension points keep the protocol from being a straitjacket.
+A model may expose \texttt{configure(dropout, learning\_rate)} to accept
+head hyper-parameters from the command line, and \texttt{get\_callbacks()} to
+add callbacks justified by that member's own research --- the custom CNN uses
+this hook for the \texttt{ReduceLROnPlateau} schedule specified by its source
+paper (Section~\ref{sec:customcnn}). Neither hook can alter the data, the
+augmentation, or the evaluation.
+
+\subsection{Hyper-parameter Tuning}
+
+All hyper-parameter selection used the internal tuning split only; the
+held-out set was never consulted. The four transfer models share the same
+two-parameter head (dropout rate and learning rate), and all four final runs
+used dropout $0.3$ and learning rate $10^{-3}$. These values were not simply
+assumed:
+
+\begin{itemize}
+  \item \textbf{EfficientNet-B0} ran a one-factor-at-a-time experiment suite
+    under a shortened budget (15 epochs, patience 3): the baseline
+    (dropout 0.3, LR $10^{-3}$) against a lower learning rate
+    ($3 \times 10^{-4}$) and against stronger dropout (0.4). Runs were ranked
+    by tuning macro-$F_1$, the baseline won, and only the winning
+    configuration was retrained under the full 32-epoch protocol.
+  \item \textbf{ViT} validated its choice of pretrained weights with the
+    pretraining-source ablation of Section~\ref{sec:vit-ablation}, again
+    selected on the tuning split alone.
+  \item \textbf{The custom CNN} takes its optimiser settings from its source
+    paper rather than from a search, since faithful reproduction was the point
+    of that baseline; the one free coefficient (L2 strength) is documented in
+    Section~\ref{sec:customcnn}.
+\end{itemize}
+
+This is deliberately light tuning. With frozen backbones the head has at most
+8,196 trainable parameters, so the search space that matters is small, and we
+preferred spending the budget on a clean architecture comparison over
+per-model searches that would have confounded it.
+
+\subsection{Convergence and Training Cost}
+
+\begin{table}[H]
+\centering
+\caption{Training cost and convergence of the five final runs. Wall-clock
+times are indicative only, since hardware differed between members (WSL2 GPU
+versus CPU-only); all runs used TensorFlow 2.21.0 and the identical protocol
+of Table~\ref{tab:protocol}.}
+\label{tab:cost}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Model & Hardware & Wall-clock (s) & Epochs run & Best epoch \\
+\midrule
+Custom CNN      & GPU (WSL2) & 728   & 32 & 24 \\
+ResNet-50       & CPU        & 2{,}043 & 32 & 25 \\
+EfficientNet-B0 & GPU (WSL2) & 450   & 32 & 32 \\
+MobileNetV2     & CPU        & 989   & 32 & 30 \\
+ViT-B/16        & CPU        & 9{,}378 & 30 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The best-epoch column tells the convergence story compactly. ViT locked on by
+epoch 10 --- its frozen CLS embedding is already organised for linear
+classification, so the 3,076-parameter head has little to learn --- and was
+the only run stopped early (epoch 30 = best epoch 10 plus patience 20). The
+custom CNN and ResNet-50 peaked mid-schedule (epochs 24 and 25). MobileNetV2
+and EfficientNet-B0 were still improving late: EfficientNet-B0's best epoch
+is the final epoch of its budget, which suggests a longer schedule could
+squeeze out slightly more and is noted as a limitation in
+Section~\ref{sec:discussion}. Per-model training and validation curves are
+shown in the corresponding subsections of Section~4
+(Figures~\ref{fig:customcnn-curves}, \ref{fig:resnet50-curves},
+and~\ref{fig:vit-curves}).
+
+Wall-clock comparisons across members are only indicative because hardware was
+mixed --- two members trained on an NVIDIA GPU under WSL2, three on CPU. The
+determinism settings and recorded metadata make the runs comparable in every
+respect except speed. One like-for-like observation survives the caveat: on
+identical CPU-only setups, ViT cost roughly 4.6$\times$ ResNet-50's wall-clock
+(9,378\,s versus 2,043\,s) for lower held-out accuracy, a trade-off examined
+in Section~\ref{sec:comparative}.
 
 \section{Inference and Performance Evaluation}
 \subsection{Evaluation Protocol}
-% Fixed-schema evaluate(): accuracy, per-class and macro precision/recall/F1,
-% confusion matrix, on the 400 held-out images (100/class).
+
+All reported metrics are produced by a single shared function,
+\texttt{evaluate()} in \texttt{shared/evaluate.py}, so every model is scored
+by identical code. For a given model and dataset it computes accuracy,
+per-class precision, recall, and $F_1$ with supports, their macro averages,
+and the confusion matrix (via scikit-learn), and writes them to a
+fixed-schema JSON file plus a rendered confusion-matrix PNG under
+\texttt{results/}. The fixed schema is what makes the cross-model tables in
+this section possible without any manual transcription --- every number below
+is read directly from those artifacts.
+
+The held-out evaluation itself follows the protocol of
+Section~\ref{sec:splits}: after training completes, the best checkpoint
+(selected on tuning accuracy) is restored and applied exactly once to the 400
+sealed images of \texttt{val 23} (100 per class), loaded through the separate
+held-out loader behind the \texttt{--evaluate-held-out} flag. Augmentation
+layers are inactive at inference, so models are scored on clean images.
+Because the held-out set is exactly balanced, macro recall coincides with
+accuracy --- a property visible in Table~\ref{tab:leaderboard} that doubles
+as a sanity check on the pipeline.
+
 \subsection{Results}
 \label{sec:results}
-% Held-out (val 23) leaderboard — numbers below are from results/*.json:
+
+Table~\ref{tab:leaderboard} ranks the five approaches on the held-out set.
+
 \begin{table}[H]
 \centering
 \caption{Held-out performance on \texttt{val 23} (400 images, 100 per class).}
@@ -1260,28 +1409,227 @@ Macro-$F_1$ & 0.9549 & 0.9652 & $+0.0103$ \\
 \toprule
 Model & Accuracy & Macro P & Macro R & Macro F1 & Params & Best Epoch \\
 \midrule
-ResNet-50        & \textbf{0.9750} & 0.9757 & 0.9750 & \textbf{0.9750} & 23.6M & fillup \\
-ViT              & 0.9650 & 0.9659 & 0.9650 & 0.9652 & 85.8M & fillup \\
-MobileNetV2      & 0.9575 & 0.9592 & 0.9575 & 0.9576 & 2.3M  & fillup  \\
-Custom CNN       & 0.8450 & 0.8772 & 0.8450 & 0.8452 & 26.5M & fillup  \\
-EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
+EfficientNet-B0  & \textbf{0.9775} & 0.9779 & 0.9775 & \textbf{0.9775} & 4.1M  & 32 \\
+ResNet-50        & 0.9750 & 0.9757 & 0.9750 & 0.9750 & 23.6M & 25 \\
+ViT              & 0.9650 & 0.9659 & 0.9650 & 0.9652 & 85.8M & 10 \\
+MobileNetV2      & 0.9575 & 0.9592 & 0.9575 & 0.9576 & 2.3M  & 30 \\
+Custom CNN       & 0.8450 & 0.8772 & 0.8450 & 0.8452 & 26.5M & 24 \\
 \bottomrule
 \end{tabular}
 \end{table}
-% Confusion matrices (results/<name>_confusion_matrix.png) side by side.
-% Per-class analysis: the custom CNN collapses on dense_residential
-% (recall 0.64, mostly confused with sparse_residential) while transfer
-% models resolve it — a strong "why pretraining matters" narrative.
-\todo{Figures + per-class discussion}
+
+Two facts dominate the leaderboard. First, the four transfer-learning models
+finish within 2.0 accuracy points of one another (0.9575--0.9775), while the
+from-scratch CNN trails the weakest of them by 11.25 points. The single
+largest factor in this study is therefore not the architecture but the
+presence of ImageNet pretraining. Second, the winner is also nearly the
+smallest model: EfficientNet-B0 reaches the best accuracy and macro-$F_1$
+with 4.1M parameters, a twentieth of ViT's 85.8M.
+
+\begin{table}[H]
+\centering
+\caption{Per-class $F_1$ on the held-out set. The hardest class for every
+model is shown in bold.}
+\label{tab:perclass}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Class & Custom CNN & MobileNetV2 & ViT & ResNet-50 & EfficientNet-B0 \\
+\midrule
+\texttt{coastal\_mansion}    & 0.990 & 0.975 & 0.980 & 0.995 & 0.985 \\
+\texttt{dense\_residential}  & \textbf{0.727} & 0.948 & 0.951 & \textbf{0.964} & \textbf{0.970} \\
+\texttt{nursing\_home}       & 0.864 & \textbf{0.947} & 0.980 & 0.975 & 0.980 \\
+\texttt{sparse\_residential} & 0.800 & 0.960 & \textbf{0.950} & 0.966 & 0.976 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Per-class pattern.}
+The per-class breakdown (Table~\ref{tab:perclass}) is remarkably consistent
+with the predictions recorded during exploratory analysis.
+\texttt{coastal\_mansion} is the easiest class for every model ($F_1 \geq
+0.975$ everywhere): the shoreline is a global, unambiguous cue, and three of
+the five models never predict this class for an image of any other class
+(perfect precision). \texttt{dense\_residential} is the weakest class for the
+custom CNN, ResNet-50, and EfficientNet-B0, and within a point of the
+minimum for ViT and MobileNetV2 --- for every model, the bottom of the table
+is a residential-density or institutional-layout judgement, never the
+shoreline class. The custom CNN's failure is an extreme version of the same
+pattern rather than a different one --- its \texttt{dense\_residential} recall of 0.64 means 36 of
+100 dense scenes were misread, almost all as \texttt{sparse\_residential},
+while every transfer model keeps dense-residential recall at 0.92 or above.
+Frozen ImageNet features evidently supply exactly the mid-level texture and
+density detectors that 2,378 images cannot teach from scratch.
+
+\paragraph{Error counts and statistical resolution.}
+In absolute terms the models misclassify 9 (EfficientNet-B0), 10 (ResNet-50),
+14 (ViT), 17 (MobileNetV2), and 62 (custom CNN) of the 400 held-out images.
+The gap between the top two is a single image, and a 95\% binomial confidence
+interval on 400 trials spans roughly $\pm 1.5$ accuracy points at the top of
+the table (and $\pm 3.5$ points at the custom CNN's level). The ordering
+among the four transfer models is therefore suggestive rather than settled
+--- all four intervals overlap --- whereas the gap between any transfer model
+and the from-scratch baseline is far outside any interval and is the one
+statistically unambiguous conclusion this test set can support. This caveat
+is carried into the recommendation in Section~\ref{sec:discussion}.
+
+Confusion matrices for each model, and the per-model diagnosis of where the
+errors sit, are given alongside the corresponding architecture in
+Section~4; the cross-model view of those errors is taken up in
+Section~\ref{sec:comparative}.
 
 \section{Strengths, Weaknesses, and Comparative Insights}
 \label{sec:comparative}
-% Required by the spec: discuss each approach EXTENSIVELY.
-% Suggested axes: accuracy vs parameter count vs training cost vs inference
-% latency; data efficiency of transfer learning; ViT's cost/benefit at this
-% dataset scale; MobileNetV2 as the best accuracy-per-parameter;
-% error overlap between models (do they fail on the same images?).
-\todo{Comparative analysis table + discussion}
+
+\subsection{Per-Approach Assessment}
+
+\paragraph{Custom CNN (Pyramidal Net).}
+Its strength is exactly its role: as the only model with no external weights,
+it isolates what our 2,378 images alone can teach, and on classes with a
+global, scene-level cue it is genuinely competitive ($F_1 = 0.990$ on
+\texttt{coastal\_mansion}, with perfect precision). Its weaknesses follow
+from its capacity being in the wrong place: 97\% of its 26.5M parameters sit
+in a single dense layer fitted to a few thousand images, producing the
+largest train--validation gap of the study, the worst held-out accuracy
+(0.8450), a collapse on the density boundary (dense-residential recall
+0.64), and a 6.3-point gap between tuning and held-out macro-$F_1$ --- the
+least trustworthy validation signal of the five. It is also the only model
+whose early training was unstable (Figure~\ref{fig:customcnn-curves}).
+
+\paragraph{ResNet-50.}
+The strong default lived up to its reputation: 0.9750 accuracy, no class
+below $F_1 = 0.964$, smooth convergence, and near-zero checkpoint-selection
+bias ($-0.006$ macro-$F_1$). Its weakness is cost-effectiveness rather than
+quality: it needs 23.6M parameters and the longest CPU training time of the
+CNNs (2,043\,s) to reach an accuracy that EfficientNet-B0 statistically
+matches with a sixth of the parameters and, on GPU, a fraction of the
+wall-clock. As a deployment artifact it is the largest CNN checkpoint in the
+study for no measurable accuracy benefit.
+
+\paragraph{EfficientNet-B0.}
+The best result of the study --- 0.9775 accuracy and macro-$F_1$ with only
+4.1M total parameters and 5,124 trainable --- and the only model to hold
+every class at $F_1 \geq 0.970$. Compound scaling's accuracy-per-parameter
+promise \cite{Tan2019} is borne out at the smallest scale of the family. Its
+hyper-parameters were also the most systematically chosen, via a
+one-factor-at-a-time suite (Section~\ref{sec:training}). Two caveats: its
+best epoch was the last epoch of the budget, so it is plausibly slightly
+undertrained, and its margin over ResNet-50 is one image --- a tie within
+noise, not a demonstrated superiority.
+
+\paragraph{MobileNetV2.}
+The efficiency extreme: 2.3M parameters --- 2.6\% of ViT's footprint ---
+still delivers 0.9575 accuracy, making it the best accuracy-per-parameter in
+the study and the natural choice if the classifier had to run on an edge
+device such as a drone or embedded mapping unit \cite{Sandler2018}. Its
+weakness is that it is the least accurate of the transfer models, and its
+error signature differs from the others: its largest single confusion is
+\texttt{dense\_residential} $\rightarrow$ \texttt{nursing\_home} (7 images)
+rather than the dense$\rightarrow$sparse confusion that dominates elsewhere,
+suggesting its aggressively factorised features blur the
+building-footprint cues that separate institutional from residential blocks.
+
+\paragraph{Vision Transformer (ViT-B/16).}
+The structural outlier earns its place in the comparison: it converged
+fastest (best epoch 10), showed zero checkpoint-selection bias (held-out
+macro-$F_1$ \emph{above} tuning), and confirmed that global self-attention
+transfers to aerial imagery even frozen. But at this dataset scale its costs
+are not repaid: 85.8M parameters and 9,378\,s of CPU training --- 4.6$\times$
+ResNet-50's time on comparable hardware --- for an accuracy 1.0 point
+\emph{below} ResNet-50. In Pareto terms ResNet-50 dominates it on both size
+and accuracy. The literature's caution that transformers want more data
+\cite{Shoaib2025} is thus refined by our result: a frozen ViT is perfectly
+\emph{usable} at 2,378 images, but nothing about the task rewarded its extra
+capacity.
+
+\subsection{Accuracy versus Cost}
+
+\begin{table}[H]
+\centering
+\caption{Consolidated comparison. $\Delta F_1$ is held-out minus tuning
+macro-$F_1$ (checkpoint-selection bias; negative = tuning metrics were
+optimistic). Wall-clock times are indicative only (mixed hardware,
+Table~\ref{tab:cost}).}
+\label{tab:comparative}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Model & Total params & Trainable & Held-out acc. & Macro $F_1$ & $\Delta F_1$ \\
+\midrule
+EfficientNet-B0 & 4{,}054{,}695  & 5{,}124  & \textbf{0.9775} & \textbf{0.9775} & $+0.0084$ \\
+ResNet-50       & 23{,}595{,}908 & 8{,}196  & 0.9750 & 0.9750 & $-0.0059$ \\
+ViT-B/16        & 85{,}801{,}732 & 3{,}076  & 0.9650 & 0.9652 & $+0.0103$ \\
+MobileNetV2     & 2{,}263{,}108  & 5{,}124  & 0.9575 & 0.9576 & $+0.0147$ \\
+Custom CNN      & 26{,}512{,}212 & 26{,}511{,}444 & 0.8450 & 0.8452 & $-0.0627$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Plotting accuracy against parameter count, only two models sit on the Pareto
+frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most accurate).
+ResNet-50 is dominated by EfficientNet-B0 --- more parameters for
+statistically indistinguishable accuracy --- and ViT is dominated by
+ResNet-50 on both axes. The custom CNN is dominated by everything: more
+parameters than three of the four transfer models and 11--13 points less
+accuracy. For any deployment scenario in this study's range, the practical
+menu is therefore EfficientNet-B0 by default and MobileNetV2 when the size
+budget is severe.
+
+\subsection{Data Efficiency: What Pretraining Buys}
+
+The comparison quantifies transfer learning's value on this task with unusual
+directness, because everything except pretraining is controlled. Fitting
+3,076--8,196 head parameters on frozen ImageNet features beats fitting 26.5M
+parameters from scratch by 11.25--13.25 accuracy points, at a fraction of the
+training cost. Moreover, the deficit is concentrated precisely where the task
+is fine-grained: the from-scratch model matches the transfer models on
+\texttt{coastal\_mansion} (a coarse, colour-and-shoreline cue) and loses
+massively on the density classes (Table~\ref{tab:perclass}). This is the
+boundary sketched in Section~\ref{sec:customcnn}: from-scratch CNNs suffice
+for coarse scene vocabulary, while fine-grained spatial-arrangement
+distinctions demand either far more data or borrowed mid-level features. Our
+result thus lands on the same side as Kwenda et al.\ \cite{Kwenda2024} and
+the review consensus \cite{Shoaib2025}, but with the confound of differing
+pipelines removed.
+
+\subsection{Capacity and the Trustworthiness of Validation Metrics}
+
+The $\Delta F_1$ column of Table~\ref{tab:comparative} completes the analysis
+threaded through Section~4. Checkpoint selection maximises tuning accuracy,
+so tuning metrics are optimistic to the degree that the model can fit the
+idiosyncrasies of the 420 tuning images. The effect scales cleanly with
+trainable capacity: 26.5M trainable parameters bought $-6.3$ points of
+optimism; 8,196 bought $-0.6$; and at 3,076--5,124 parameters the sign
+flips, with held-out performance slightly \emph{exceeding} tuning
+performance --- the models cannot meaningfully overfit 420 images, so the
+tuning signal transfers unbiased, and the residual $\pm 1$-point wobble is
+sampling noise between two small evaluation sets. The practical insight for
+small-data work: freezing the backbone does not just prevent overfitting the
+training set, it makes a small validation split \emph{sufficient} for honest
+model selection. Teams without the luxury of a sealed test set should regard
+validation scores from high-capacity models with proportional suspicion.
+
+\subsection{Error Overlap and Diversity}
+
+Do the five models fail on the same images? At the class level, largely yes:
+every confusion matrix concentrates its mass on the
+dense/sparse-residential boundary, and no model ever confuses
+\texttt{coastal\_mansion} with \texttt{nursing\_home} in either direction ---
+the two classes with distinctive global structure. The custom CNN's errors
+look like a magnified superset of the transfer models' errors rather than a
+different failure mode.
+
+Within the transfer models, however, the \emph{direction} of error differs
+instructively. ResNet-50 and EfficientNet-B0 spread their few errors thinly
+with a slight dense$\rightarrow$sparse lean; ViT's largest single cell is the
+reverse, sparse$\rightarrow$dense (4 images); MobileNetV2's is
+dense$\rightarrow$nursing-home (7 images). The top models are therefore not
+making identical mistakes, which has a concrete consequence: a majority vote
+or probability-averaging ensemble of ResNet-50, EfficientNet-B0, and ViT
+would plausibly recover several of the 9--14 residual errors each makes
+alone. We flag this as future work (Section~\ref{sec:future}) rather than
+reporting it, because building an ensemble after seeing held-out results
+would itself constitute test-set leakage under our protocol.
 
 \section{Deployment via Containerisation}
 % Docker image: python:3.12-slim, Streamlit UI (frontend/web.py) on port 8501,
@@ -1295,62 +1643,382 @@ EfficientNet-B0  & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} & \todo{} \\
 \todo{Deployment description + screenshots}
 
 \section{Results, Insights, and Discussion}
-% Synthesis: what the benchmark says about fine-grained aerial classification;
-% final model recommendation and justification (accuracy vs efficiency);
-% limitations (single seed, no cross-validation, 400-image test set ->
-% ~±2% confidence interval on accuracy).
-\todo{Key insights}
+\label{sec:discussion}
+
+\paragraph{What this benchmark says about fine-grained aerial classification.}
+The headline finding is that four visually confusable residential categories
+--- the deliberately fine-grained partition PatternNet was designed to
+produce \cite{Zhou2018} --- are solvable to 96--98\% accuracy by frozen
+ImageNet features with a head of a few thousand parameters. No fine-tuning,
+no task-specific architecture, and no aggressive hyper-parameter search were
+needed to reach that level. The genuinely scarce resource in this regime is
+not model capacity but labelled data, and pretraining is how capacity is
+converted into something 2,378 images can steer: the same experiment run
+without pretraining (our custom CNN) lands 13 macro-$F_1$ points lower
+despite having more parameters than three of the four transfer models.
+Architecture choice \emph{among} pretrained backbones, by contrast, is worth
+at most 2 points on this task --- second-order compared with the decision to
+transfer at all.
+
+\paragraph{Where the remaining errors live.}
+Every model's residual errors concentrate on the dense-versus-sparse
+residential boundary, exactly as the exploratory analysis predicted before
+any training. We read this less as a model deficiency than as a property of
+the label space: density is a continuous quantity that the benchmark
+discretises into two names, so scenes near the threshold are inherently
+ambiguous --- the dataset itself contains one image assigned to two classes
+(Section~2.5), direct evidence that even the annotation process struggled at
+this boundary. Accuracy meaningfully above 98\% on this partition would
+likely require modelling that ambiguity (soft labels, ordinal density
+regression) rather than a better classifier.
+
+\paragraph{Final model recommendation.}
+We recommend \textbf{EfficientNet-B0} as the final model. It tops the leaderboard
+(0.9775 accuracy and macro-$F_1$), holds every class at $F_1 \geq 0.970$,
+and does so with the second-smallest parameter count and the smallest
+checkpoint among the top models --- there is no axis on which a rival beats
+it by more than noise. We state the caveat plainly: its margin over
+ResNet-50 is one image on a 400-image test set, so the honest claim is
+``statistically tied for best accuracy while several times cheaper,'' which
+is itself a sufficient reason to choose it. If the deployment budget were
+tightened to embedded hardware, MobileNetV2 gives up 2 accuracy points for a
+45\% smaller network and would be the rational trade.
+
+\paragraph{Limitations.}
+Four limitations bound our claims. (i) Every result is a single run at seed
+42; without repetition across seeds we cannot attach variances, though the
+determinism of the pipeline makes each number exactly reproducible. (ii) The
+400-image test set implies roughly $\pm 1.5$-point confidence intervals at
+the top of the leaderboard, so the ordering among the four transfer models is
+not statistically resolved --- only the transfer-versus-scratch gap is.
+(iii) All four backbones were fully frozen. This was a deliberate controlled
+variable, but it means we measured pretrained \emph{representations}, not the
+ceiling of each architecture under fine-tuning; EfficientNet-B0's best epoch
+landing on the final epoch of its budget likewise hints at headroom we did
+not spend. (iv) The augmentation policy, input resolution, and other shared
+settings were fixed for comparability rather than tuned per model, so each
+individual model is likely slightly below its own optimum --- the price of a
+fair comparison, paid knowingly.
 
 %=====================================================================
 % 3. INDIVIDUAL CONTRIBUTIONS  (1–2 pages)
 %=====================================================================
 \section{Individual Contributions}
 \label{sec:contributions}
-% One short paragraph per member: model owned, plus shared-infrastructure /
-% EDA / deployment / report work. Keep it concrete (branches: model/customcnn,
-% model/ResNet-50, model/effNet-b0, mobilenetv2, model/vit, feature/frontend).
+
+Each member owned one deep learning approach end-to-end --- implementation
+under the shared \texttt{build\_model} contract, experiments, final training
+run, results artifacts, figures, and the corresponding report subsection ---
+developed on a dedicated branch and merged after review. Table~\ref{tab:members}
+summarises the ownership; the paragraphs below record each member's wider
+contributions to the shared infrastructure, analysis, deployment, and report.
+
+\begin{table}[H]
+\centering
+\caption{Model ownership and development branches.}
+\label{tab:members}
 \renewcommand{\arraystretch}{1.35}
-\begin{tabular}{@{}l@{\hspace{2.5em}}l@{}}
+\begin{tabular}{@{}lll@{}}
 \toprule
-\textbf{Member} & \textbf{Contribution} \\
+\textbf{Member} & \textbf{Approach owned} & \textbf{Branch} \\
 \midrule
-Pang Jia De         & Custom CNN --- from-scratch baseline \\
-Daryl Chong Han Kin & ResNet-50 --- transfer learning \\
-Tan Jian Xin        & MobileNetV2 --- transfer learning \\
-Kaiser               & Vision Transformer (ViT-B/16) --- transfer learning \\
-Jun Kiat            & EfficientNet-B0 --- transfer learning \\
+Pang Jia De         & Custom CNN --- from-scratch baseline & \texttt{model/customcnn} \\
+Daryl Chong Han Kin & ResNet-50 --- transfer learning & \texttt{model/ResNet-50} \\
+Tan Jian Xin        & MobileNetV2 --- transfer learning & \texttt{mobilenetv2} \\
+Kaiser Yee          & Vision Transformer (ViT-B/16) & \texttt{model/vit} \\
+Jun Kiat            & EfficientNet-B0 --- transfer learning & \texttt{model/effNet-b0} \\
 \bottomrule
 \end{tabular}
 \renewcommand{\arraystretch}{1}
-\todo{need 1-2 page rn too little}
+\end{table}
+
+% TODO(team): each member please verify/extend your own paragraph below —
+% these are drafted from the git history and may under-credit shared work.
+
+\paragraph{Pang Jia De} implemented and trained the from-scratch Pyramidal
+Net baseline, reproducing the source paper's architecture and training
+configuration and documenting the deviations (Section~\ref{sec:customcnn}).
+He also led the exploratory data analysis (\texttt{eda.ipynb}), including
+the discovery of the byte-identical image pair assigned to conflicting
+classes that led to the shared exclusion mechanism, drove the decision to
+standardise inputs at the native $256 \times 256$ resolution, and maintained
+shared project configuration and the Docker build files through successive
+revisions.
+
+\paragraph{Daryl Chong Han Kin} implemented and trained the ResNet-50
+transfer model, including the tuning-versus-held-out bias analysis that
+became the template for the capacity--trustworthiness comparison across all
+five models (Section~\ref{sec:comparative}). He also acted as report
+integrator: maintaining the LaTeX sources, merging members' section drafts,
+and editing the report for a consistent structure and voice.
+
+\paragraph{Tan Jian Xin} implemented and trained the MobileNetV2 transfer
+model, the efficiency-oriented end of the comparison, running the final
+protocol on CPU-only hardware and contributing the accuracy-per-parameter
+analysis of the deployment-constrained design point.
+
+\paragraph{Kaiser Yee} implemented and trained the ViT-B/16 transfer model,
+including the input-resize fix required by ViT's fixed position-embedding
+table --- the one genuine integration bug of the project --- and designed and
+ran the pretraining-source ablation (ImageNet-21k versus 1k-finetuned
+weights), the study's cleanest example of an experimentally falsified
+assumption.
+
+\paragraph{Jun Kiat} implemented and trained the EfficientNet-B0 model that
+ultimately topped the leaderboard. He also built much of the shared
+engineering scaffolding: the automated contract tests under \texttt{tests/},
+the WSL2 GPU environment scripts, the held-out evaluation script, the
+one-factor-at-a-time experiment suite and its summary tooling, and an
+initial containerised inference service.
 %=====================================================================
 % 4. REFLECTION  (2–3 pages)
 %=====================================================================
 \section{Reflection}
-% What you learnt and how you applied it: e.g. leakage-safe evaluation design,
-% controlled experiments (fixed batch size/seed across members), transfer
-% learning in low-data regimes, team engineering (frozen shared/ contract,
-% branch workflow, result schemas), debugging (ViT input resize fix,
-% TF Python-version constraints, WSL GPU setup).
+
+\subsection{Evaluation Discipline Is a Design Problem, Not a Willpower Problem}
+
+The lecture-level statement ``do not tune on your test set'' sounds like an
+instruction to be careful. The lasting lesson of this project is that
+carefulness does not scale across five people and dozens of runs --- the
+protection has to be built into the code. We designed the pipeline so that
+the held-out loader is a separate function behind an explicit flag, never
+passed to \texttt{model.fit} and never visible to a callback, which made the
+leakage mistake structurally impossible rather than merely discouraged.
+
+The payoff was concrete. Our custom CNN's tuning macro-$F_1$ of 0.908
+overstated its true held-out 0.845 by more than six points, with the entire
+gap concentrated in one class. Had we reported tuning metrics --- a natural
+mistake, since the model never received gradients from those images --- we
+would have published the wrong number \emph{and} the wrong conclusion about
+which class was solved. Watching that gap shrink to zero as trainable
+capacity fell across the other four models turned an abstract warning about
+validation optimism into something we measured ourselves. None of us will
+again read a validation score without asking how much capacity the model had
+to fit the validation set's idiosyncrasies.
+
+\subsection{A Controlled Comparison Is a Team Contract}
+
+We set out to compare architectures, and learnt that the comparison is only
+as good as the discipline around it. Fixing the seed, split, input size,
+batch size, epoch budget, augmentation policy, and evaluation code across
+five members meant freezing \texttt{shared/} early and treating changes to it
+as team-wide events, because any silent change would invalidate everyone's
+prior runs. The fixed result schema was the quiet hero: because every run
+wrote the same JSON structure, cross-model tables assembled themselves
+without transcription, and each run's metadata (git commit, seed, split
+counts, parameter counts, duration, hardware) made every number in this
+report auditable months later.
+
+We also learnt when to renegotiate the contract. The pipeline originally used
+$224 \times 224$ inputs; the EDA showed this discarded 23\% of native pixels,
+and changing it was cheap precisely because we caught it before anyone had
+results to invalidate. The general lesson: agree the controlled variables
+before training starts, change them only by consensus, and instrument
+everything so that ``which configuration produced this number?'' is never a
+matter of memory.
+
+\subsection{Transfer Learning in a Low-Data Regime}
+
+Three findings reshaped our intuitions. First, the sheer size of the
+pretraining effect: heads of 3,076--8,196 parameters on frozen ImageNet
+features beat 26.5M parameters trained from scratch by 11--13 points,
+and the deficit concentrated exactly on the fine-grained density distinctions
+--- pretraining supplies the mid-level texture detectors that small data
+cannot. Second, published orderings do not transfer across task granularity:
+the source paper behind our custom CNN reports it competitive with pretrained
+networks on semantically disjoint categories, and that conclusion simply did
+not survive contact with four confusable residential classes. Reproducing a
+paper faithfully and then explaining the divergence taught us more than
+either step alone. Third, assumptions are cheap to test and often wrong: we
+expected raw ImageNet-21k features to transfer better to aerial imagery than
+1k-finetuned ones, ran the ablation, and were cleanly refuted --- in a
+frozen-backbone regime, the linear separability that supervised finetuning
+imposes matters more than feature generality.
+
+\subsection{Engineering Lessons from the Debugging Trail}
+
+The bugs we hit were more instructive than the code that worked first time.
+The ViT input-size failure was the sharpest: CNN backbones silently accept
+$256 \times 256$ inputs because convolution weights are position-agnostic,
+but ViT's fixed position-embedding table made the same mismatch a hard error,
+forcing us to understand \emph{why} the two families differ rather than just
+resizing and moving on. The augmentation-ordering bug was subtler: placing
+rescaling before the brightness layer --- which is configured for a
+$[0,255]$ range --- silently saturated images to black, a reminder that
+numerically valid pipelines can still be semantically wrong, and that
+augmented batches should be visualised, not assumed. An early $\pm 50\%$
+photometric jitter that destroyed the very texture cues our EDA said the task
+depends on taught the same inspect-your-data lesson from the other side.
+
+Environment work was its own education: getting TensorFlow's GPU path
+working under WSL2, pinning Python and TensorFlow versions across five
+machines, and accepting that some members would train on CPU. Determinism
+plus recorded metadata is what made that heterogeneity safe --- identical
+seeds and splits meant hardware changed only wall-clock, never results. The
+automated contract tests earned their keep repeatedly, catching regressions
+in the split logic before they could corrupt anyone's run. If we started
+again, we would write those tests first, not midway.
+
+\subsection{What We Would Do Differently}
+
+Beyond starting with the tests, we would budget training time by
+architecture rather than uniformly --- EfficientNet-B0's best epoch landing
+on its final epoch shows a flat 32-epoch cap does not fit every model
+equally. We would also schedule multiple seeds from the outset; single-run
+results were the right trade under our compute constraints, but the
+confidence-interval analysis of Section~\ref{sec:results} would have been
+stronger as an empirical variance. Both are carried into
+Section~\ref{sec:future}.
 
 
 %=====================================================================
 % 5. FUTURE WORK  (1–2 pages)
 %=====================================================================
 \section{Future Work}
-% e.g. fine-tuning (unfreezing) backbones with discriminative learning rates,
-% ensembling the top models, test-time augmentation, Grad-CAM interpretability,
-% cross-validation over seeds, REST inference API (FastAPI) alongside the UI,
-% expanding to more of the 38-category benchmark.
-\todo{Future directions}
+\label{sec:future}
+
+\paragraph{Partial fine-tuning with discriminative learning rates.}
+The most direct extension is to unfreeze the top blocks of the winning
+backbones with a learning rate one to two orders of magnitude below the
+head's, keeping earlier layers frozen. Our frozen-backbone protocol measured
+pretrained representations, not each architecture's ceiling, and two signs
+point to headroom: EfficientNet-B0's best epoch fell on the last epoch of
+its budget, and the residual errors are fine-grained texture judgements ---
+exactly what adapting the top convolutional blocks to aerial imagery should
+help. The selection discipline must carry over: any fine-tuning experiment
+would be ranked on the internal tuning split, with the held-out set touched
+once at the end.
+
+\paragraph{Ensembling and test-time augmentation.}
+Section~\ref{sec:comparative} showed the top models err in different
+directions (ResNet-50 and EfficientNet-B0 lean dense$\rightarrow$sparse, ViT
+the reverse, MobileNetV2 toward \texttt{nursing\_home}), which is precisely
+the diversity an averaging ensemble exploits; with only 9--14 errors per
+model, recovering even a handful would be a meaningful relative gain.
+Test-time augmentation is a natural companion on aerial data: since flips
+and rotations are label-preserving here, averaging predictions over the
+dihedral group costs only inference time and no retraining. Both must be
+designed \emph{before} a fresh evaluation --- assembling an ensemble to fix
+errors already observed on the held-out set would be selection on the test
+set.
+
+\paragraph{Multiple seeds and statistical testing.}
+Rerunning the five final configurations over several seeds would replace our
+single-run leaderboard with means and variances, and paired tests (e.g.\
+McNemar's on the 400 held-out predictions) could establish whether
+EfficientNet-B0's one-image margin over ResNet-50 ever becomes a real
+ordering. This is the cheapest way to firm up the study's weakest
+statistical point.
+
+\paragraph{Interpretability of the density decision.}
+Grad-CAM on the convolutional models and attention-map visualisation on ViT
+would test our standing interpretation directly: that
+\texttt{coastal\_mansion} is recognised by shoreline, and that dense/sparse
+errors occur on scenes near the density threshold. Confirming that the
+models attend to buildings and spacing --- rather than to spurious cues such
+as image brightness --- would also strengthen the case for deploying the
+classifier on imagery from other regions.
+
+\paragraph{Calibration and abstention.}
+The inference interface reports softmax confidence, but we never measured whether 0.9
+confidence means 90\% correctness. Measuring calibration error on held-out
+predictions, applying temperature scaling if needed, and adding an
+``uncertain --- refer to a human'' band for borderline density cases would
+make the confidence output operationally meaningful, which matters for the
+mapping and planning applications that motivated the task.
+
+\paragraph{Hardened serving path.}
+The Streamlit UI suits demonstration; a production path would add a FastAPI
+REST endpoint alongside it (machine-to-machine JSON inference), container
+build-and-health checks in CI, and a quantised or TensorFlow-Lite export ---
+most naturally of MobileNetV2 --- for on-device inference, subject to
+verifying metric parity with the trained checkpoint.
+
+\paragraph{Scaling beyond the partition.}
+Finally, the four-class study invites two outward steps: training on more
+(eventually all 38) PatternNet categories to test whether the frozen-backbone
+approach holds as the label space grows, and evaluating cross-dataset
+transfer (e.g.\ on AID or NWPU-RESISC45 residential classes) to measure the
+domain gap our single-source benchmark cannot reveal. Remote-sensing-specific
+pretrained backbones would be the natural comparison point there,
+substituting in-domain pretraining for ImageNet's.
 
 \bibliography{mybib}
 
 \appendix
 \section{Supplementary Material}
-% Full hyper-parameter tables, extra confusion matrices, additional EDA plots,
-% repository structure, reproduction instructions (train.py command line).
-\todo{Appendix}
+
+\subsection{Consolidated Hyper-parameters}
+
+\begin{table}[H]
+\centering
+\caption{Final-run hyper-parameters for all five approaches. Shared protocol
+settings (seed 42, batch 16, 32-epoch budget, patience 20, input
+$256 \times 256$) are listed in Table~\ref{tab:protocol} and omitted here.}
+\label{tab:appendix-hparams}
+\small
+\begin{tabular}{lllll}
+\toprule
+Model & Learning rate & Dropout & Regularisation / callbacks & Trainable params \\
+\midrule
+Custom CNN      & $2.5 \times 10^{-4}$ & none & L2 $10^{-4}$ (conv); ReduceLROnPlateau & 26{,}511{,}444 \\
+ResNet-50       & $10^{-3}$ & 0.3 & frozen backbone & 8{,}196 \\
+EfficientNet-B0 & $10^{-3}$ & 0.3 & frozen backbone & 5{,}124 \\
+MobileNetV2     & $10^{-3}$ & 0.3 & frozen backbone & 5{,}124 \\
+ViT-B/16        & $10^{-3}$ & 0.3 & frozen backbone & 3{,}076 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Repository Structure}
+
+\begin{verbatim}
+CSC3109-Machine-Learning/
+|- data/set 23/          provided training data (700 images x 4 classes)
+|- data/val 23/          sealed held-out set (100 images x 4 classes)
+|- shared/               frozen team contract: config, data splits,
+|                        augmentation policy, evaluate()
+|- models/<name>/        one module per approach exposing
+|                        build_model(num_classes, augmentation)
+|- train.py              shared training/evaluation entrypoint
+|- tests/                pytest contract tests (data + training)
+|- results/              per-run JSON metrics, metadata, curves,
+|                        confusion matrices, checkpoints
+|- frontend/web.py       Streamlit inference UI
+|- dockerfile            deployment image (python:3.12-slim)
+|- eda.ipynb             exploratory data analysis
+|- docs/                 this report
+\end{verbatim}
+
+\subsection{Reproduction Instructions}
+
+All results in this report can be regenerated from the repository root.
+The dataset directories are expected under \texttt{data/} (override with the
+\texttt{CSC3109\_DATA\_DIR} environment variable).
+
+\begin{verbatim}
+# environment
+pip install -r requirements.txt
+
+# verify the shared-pipeline contract
+pytest
+
+# reproduce a final run (identical form for custom_cnn,
+# resnet50, efficientnet_b0, mobilenetv2, ViT)
+python train.py --model resnet50 --run-name resnet50 \
+    --epochs 32 --patience 20 --batch-size 16 \
+    --run-type final --evaluate-held-out
+\end{verbatim}
+
+Each run writes \texttt{results/<run>\_run.json} (metadata: seed, git
+commit, split counts, parameters, best epoch, duration, hardware),
+\texttt{<run>\_history.json} (per-epoch curves),
+\texttt{<run>\_tuning.json} and \texttt{<run>.json} (fixed-schema metrics on
+the tuning and held-out sets), and the corresponding confusion-matrix and
+training-curve figures. Determinism is enforced by the shared
+\texttt{set\_seed()} (seeded RNGs plus deterministic TensorFlow kernels), so
+reruns on the same software versions reproduce the reported numbers exactly;
+TensorFlow 2.21.0 was used for all final runs.
 
 \end{document}
 

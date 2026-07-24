@@ -45,6 +45,10 @@
 \usepackage[english]{babel}
 \usepackage{amsmath}
 \usepackage{graphicx}
+% The report is compiled from docs/, but figure paths are written relative to
+% the repository root (docs/figures/...); the ../ prefix makes both resolve.
+\graphicspath{{./}{../}}
+\usepackage{booktabs}
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage{dsfont}
 \usepackage{epstopdf} % automatically replace .eps with .pdf in graphics
