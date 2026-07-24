@@ -220,6 +220,18 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# LaTeX build artifacts (keep the compiled report PDF)
+docs/*.aux
+docs/*.bbl
+docs/*.blg
+docs/*.brf
+docs/*.fdb_latexmk
+docs/*.fls
+docs/*.out
+docs/*.synctex.gz
+docs/*.thm
+docs/*.toc
+
 # PyPI configuration file
 .pypirc
 
