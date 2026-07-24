@@ -7,7 +7,7 @@ using Keras/TensorFlow.
 ## Layout
 
 ```
-data/
+dataset/
   set 23/   # FIXED train set, 700 images/class (one subfolder per class)
   val 23/   # FIXED held-out test set, 100 images/class
 shared/     # FROZEN shared foundation (do not edit without notifying the team)
@@ -20,7 +20,7 @@ results/    # per-model JSON + confusion-matrix PNG + <run-name>_best.keras
 train.py    # shared training entrypoint (--model selects the member's model)
 ```
 
-> The data folder is `data/` (NOT `dataset/`). If yours lives elsewhere, set
+> The data folder is `dataset/`. If yours lives elsewhere, set
 > the `CSC3109_DATA_DIR` environment variable instead of renaming folders.
 
 ## For team members — how to test your own model
@@ -30,22 +30,22 @@ You never run the files in `shared/` directly; they are libraries that
 tuning split derived from `set 23`; `val 23` is loaded only for explicitly
 requested smoke or final evaluation.
 
-> **Run everything from the `dev` branch.** It is the only branch with the
-> agreed baseline (tuned augmentation, `IMAGE_SIZE = 256`, `--batch-size`
-> support). Other branches still have the old augmentation, so their results
-> are not comparable.
+> **Run everything from the integrated `main` branch.** It contains the agreed
+> baseline (`IMAGE_SIZE = 256`, shared augmentation, isolated tuning/held-out
+> loaders, and `--batch-size` support).
 
 ### 1. One-time setup
 
 ```powershell
 # from the repo root: C:\Github\CSC3109-Machine-Learning
-py -3.12 -m venv venv           # MUST be Python 3.12 — TensorFlow has no 3.13/3.14 wheel
-.\venv\Scripts\Activate.ps1     # prompt should now show (venv)
+py -3.12 -m venv .venv          # MUST be Python 3.12
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pytest
 ```
 
-> If a `venv\` from an older Python already exists, delete it first:
-> `Remove-Item -Recurse -Force venv`.
+> If `.venv\` already exists, reuse it after installing the current
+> requirements instead of creating a second environment.
 
 ### 2. Train your model
 
@@ -101,28 +101,11 @@ Push the contents of `results/` to `dev`. Pull before you push — the whole tea
 shares the branch. `*.keras` is gitignored (files are ~300 MB), so only the
 JSON/PNG get committed.
 
-### 5. Config Docker and deploy UI
+### 5. Build and run the final Docker UI
 
-The checkpoint is named `<run-name>_best.keras` — use that exact name below.
-
-**UPDATE THE `.dockerignore`** (`results/*` blocks everything, so you must
-re-include your file):
-
-```docker
-!results/<name>_best.keras
-```
-
-Update frontend/**web.py**
-
-```python
-MODEL_PATH = REPO_ROOT / "results" / "<name>_best.keras"
-```
-
-**MODIFY THIS IN THE DOCKERFILE**
-
-```docker
-COPY results/<name>_best.keras results/<name>_best.keras
-```
+The checked-in deployment configuration consistently targets the selected
+`results/efficientnet_b0_best.keras` checkpoint in `.dockerignore`,
+`dockerfile`, and `frontend/inference.py`.
 
 **Build Image**
 
@@ -145,23 +128,10 @@ docker tag your_username/your-repo-name:<version> your_username/your-repo-name:l
 docker push your_username/your-repo-name:latest
 ```
 
-## Example
-
-```bash
-docker build -t xxjiadexx/custom_cnn:v1.0 .
-docker push xxjiadexx/custom_cnn:v1.0
-```
-
 ## Deploy UI
 
 ```bash
 docker run --name <container_name> -p 8501:8501 <image_name:version>
-```
-
-## Example
-
-```bash
-docker run --name custom_cnn -p 8501:8501 xxjiadexx/custom_cnn:v1.0
 ```
 
 Then open <http://localhost:8501> and upload an aerial image to confirm the

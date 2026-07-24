@@ -7,22 +7,18 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
-from shared.config import CLASS_NAMES, IMAGE_SIZE  
+from frontend.inference import MODEL_PATH, load_model, predict_probabilities
+from shared.config import CLASS_NAMES
 
-
-MODEL_PATH = REPO_ROOT / "results" / "custom_cnn_best.keras"
 
 @st.cache_resource
-def load_model(model_path):          
-    try:
-        from tensorflow import keras
-        return keras.models.load_model(model_path, compile=False), None
-    except Exception as exc:
-        return None, str(exc)
+def load_selected_model():
+    return load_model(MODEL_PATH)
 
-model, model_error = load_model(str(MODEL_PATH))
 
-st.title("Aerial Scene Classifier 🛰️")
+model, model_error = load_selected_model()
+
+st.title("Aerial Scene Classifier")
 st.write(
     "Upload an aerial image and the model predicts one of four categories: "
     + ", ".join(CLASS_NAMES)
@@ -30,23 +26,20 @@ st.write(
 )
 
 if model is None:
-    st.warning(
-        "⚠️ **UI preview mode** — the model could not be loaded, so predictions "
-        "below are placeholders. Once the model loads, real predictions appear."
+    st.error(
+        "The EfficientNet-B0 checkpoint could not be loaded. "
+        "Predictions are disabled until the deployment artifact is available."
     )
     with st.expander("Why?"):
         st.code(model_error or "Unknown error")
+    st.stop()
 
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded image", use_container_width=True)
 
-    if model is not None:
-        x = np.expand_dims(np.array(image.resize((IMAGE_SIZE, IMAGE_SIZE)), "float32"), 0)
-        probs = model.predict(x)[0]
-    else:
-        probs = np.full(len(CLASS_NAMES), 1.0 / len(CLASS_NAMES))
+    probs = predict_probabilities(model, image)
 
     top = int(np.argmax(probs))
     st.success(f"Prediction: **{CLASS_NAMES[top]}**  ({probs[top]:.1%} confidence)")
