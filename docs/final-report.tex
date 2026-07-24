@@ -39,7 +39,7 @@ Earth-observation satellites, aerial surveys, and high-resolution basemaps now p
 
 Until the early 2010s this problem was tackled with handcrafted features: colour histograms, texture descriptors, SIFT-based bag-of-visual-words. These worked reasonably well for coarse distinctions but stalled because they describe low-level appearance rather than the structure of a scene. Deep convolutional networks changed that by learning features directly from data instead of relying on hand-designed ones. Since AlexNet's ImageNet result \cite{Krizhevsky2012}, they have taken over image classification generally, and the remote-sensing literature shows the same pattern: deep models are now standard on aerial scene classification benchmarks \cite{Cheng2020}.
 
-The dataset used in this project makes the task harder in two specific ways. First, the four classes: buildings, roads, vegetation, and parked vehicles, all seen from above look visually similar to each other. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to pick up on layout, not just presence of things. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pre-trained models are central to our approach rather than optional extras.
+The dataset used in this project makes the task harder in two specific ways. First, the four classes: \texttt{coastal\_mansion}, \quad \texttt{dense\_residential}, \quad \texttt{nursing\_home}, \quad \texttt{sparse\_residential}, all seen from above look visually similar to each other. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to pick up on layout, not just presence of things. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pre-trained models are central to our approach rather than optional extras.
 
 We also cared about two things beyond accuracy. One is fair comparison: architecture papers are often hard to compare because they differ in input resolution, augmentation, training schedule, or evaluation setup, so we fixed all of these across our experiments and varied only the architecture. The other is deployment; a model is only useful if it can actually be run somewhere. So we packaged the best-performing model as a containerized inference service rather than leaving it as a notebook result.
 
@@ -1038,13 +1038,13 @@ validation signal} --- a benefit that a leaderboard alone does not reveal. This
 relationship is examined across all five models in
 Section~\ref{sec:comparative}.
 
-% TODO (Daryl): rewrite the prose above in your own voice before submission.
 \subsection{EfficientNet-B0 (transfer learning)}
 \todo{}
 \subsection{MobileNetV2 (transfer learning)}
 % 2.3M total / 5.1K trainable — efficiency-oriented baseline.
 \todo{}
 \subsection{Vision Transformer (ViT)}
+\todo{Incomplete}
 % 85.8M total / 3.1K trainable; input resize fix; attention-based contrast
 % to the convolutional models.
 The Vision Transformer \cite{Dosovitskiy2021} applies a pure Transformer
@@ -1087,9 +1087,8 @@ Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
 \end{tabular}
 \end{table}
 
-Three design decisions are worth spelling out. First, the model resizes its
-input from the shared $256\times256$ to $224\times224$ immediately before
-the backbone. This is not optional: ViT's learned position embeddings form
+The model resizes its input from the shared $256\times256$ to $224\times224$ immediately before the backbone. 
+This is not optional: ViT's learned position embeddings form
 a fixed table with one entry per patch position ($14\times14$ patches
 $+$ CLS $=$ 197 tokens for a $224\times224$ input), so a $256\times256$
 input would produce 257 tokens with no pretrained embedding to match. CNNs
