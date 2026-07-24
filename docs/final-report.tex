@@ -958,8 +958,8 @@ held-out set.
 \subsubsection{Results}
 
 Training used the shared protocol --- batch size 16, up to 32 epochs, early
-stopping with patience 20 --- and selected the best checkpoint at epoch 25,
-after 2,043 seconds. On the held-out set the model achieves \textbf{97.5\%
+stopping with patience 20 --- and selected the best checkpoint at epoch 25.
+On the held-out set the model achieves \textbf{97.5\%
 accuracy} and \textbf{0.9750 macro-$F_1$}, the second strongest of our five
 approaches. Per-class $F_1$ ranges narrowly from 0.964
 (\texttt{dense\_residential}) to 0.995 (\texttt{coastal\_mansion}), so no class
@@ -1157,8 +1157,8 @@ set.
 
 Training used the shared protocol --- batch size 16, up to 32 epochs, early
 stopping with patience 20 --- and selected the best checkpoint at epoch 10,
-the earliest of our five approaches; training stopped at epoch 30 after
-9{,}378 seconds on CPU. On the held-out set the model achieves
+the earliest of our five approaches; training stopped early at epoch 30
+(best epoch plus patience). On the held-out set the model achieves
 \textbf{96.5\% accuracy} and \textbf{0.9652 macro-$F_1$}, third of the five
 approaches and within 1.25 points of the strongest. Per-class $F_1$ ranges
 from 0.951 (\texttt{sparse\_residential} and \texttt{dense\_residential})
@@ -1288,9 +1288,8 @@ shared \texttt{set\_seed()} seeds every random number generator and enables
 TensorFlow's deterministic kernels, and every run writes a metadata record
 (\texttt{results/<run>\_run.json}) capturing the git commit, seed, split
 counts including the excluded duplicate files, total and trainable parameter
-counts, best epoch, wall-clock duration, TensorFlow version, and visible GPUs.
-Any number in this report can therefore be traced back to the exact code and
-data state that produced it.
+counts, best epoch, and TensorFlow version. Any number in this report can
+therefore be traced back to the exact code and data state that produced it.
 
 Two per-model extension points keep the protocol from being a straitjacket.
 A model may expose \texttt{configure(dropout, learning\_rate)} to accept
@@ -1329,49 +1328,28 @@ This is deliberately light tuning. With frozen backbones the head has at most
 preferred spending the budget on a clean architecture comparison over
 per-model searches that would have confounded it.
 
-\subsection{Convergence and Training Cost}
+\subsection{Convergence}
 
-\begin{table}[H]
-\centering
-\caption{Training cost and convergence of the five final runs. Wall-clock
-times are indicative only, since hardware differed between members (WSL2 GPU
-versus CPU-only); all runs used TensorFlow 2.21.0 and the identical protocol
-of Table~\ref{tab:protocol}.}
-\label{tab:cost}
-\small
-\begin{tabular}{lrrrr}
-\toprule
-Model & Hardware & Wall-clock (s) & Epochs run & Best epoch \\
-\midrule
-Custom CNN      & GPU (WSL2) & 728   & 32 & 24 \\
-ResNet-50       & CPU        & 2{,}043 & 32 & 25 \\
-EfficientNet-B0 & GPU (WSL2) & 450   & 32 & 32 \\
-MobileNetV2     & CPU        & 989   & 32 & 30 \\
-ViT-B/16        & CPU        & 9{,}378 & 30 & 10 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The best-epoch column tells the convergence story compactly. ViT locked on by
-epoch 10 --- its frozen CLS embedding is already organised for linear
-classification, so the 3,076-parameter head has little to learn --- and was
-the only run stopped early (epoch 30 = best epoch 10 plus patience 20). The
-custom CNN and ResNet-50 peaked mid-schedule (epochs 24 and 25). MobileNetV2
-and EfficientNet-B0 were still improving late: EfficientNet-B0's best epoch
-is the final epoch of its budget, which suggests a longer schedule could
-squeeze out slightly more and is noted as a limitation in
-Section~\ref{sec:discussion}. Per-model training and validation curves are
-shown in the corresponding subsections of Section~4
+Because the epoch budget, batch size, seed, and data are identical across
+runs, convergence is compared directly in epochs --- a measure independent of
+each member's local machine --- using the best-epoch column of
+Table~\ref{tab:leaderboard} and the per-model curves in Section~4
 (Figures~\ref{fig:customcnn-curves}, \ref{fig:resnet50-curves},
 and~\ref{fig:vit-curves}).
 
-Wall-clock comparisons across members are only indicative because hardware was
-mixed --- two members trained on an NVIDIA GPU under WSL2, three on CPU. The
-determinism settings and recorded metadata make the runs comparable in every
-respect except speed. One like-for-like observation survives the caveat: on
-identical CPU-only setups, ViT cost roughly 4.6$\times$ ResNet-50's wall-clock
-(9,378\,s versus 2,043\,s) for lower held-out accuracy, a trade-off examined
-in Section~\ref{sec:comparative}.
+The five runs span the full range of the budget. ViT locked on by epoch 10
+--- its frozen CLS embedding is already organised for linear classification,
+so the 3,076-parameter head has little left to learn --- and was the only run
+to trigger early stopping (halting at epoch 30, best epoch 10 plus
+patience 20). The custom CNN and ResNet-50 peaked mid-schedule (epochs 24
+and 25). MobileNetV2 and EfficientNet-B0 were still improving late: at best
+epochs 30 and 32 respectively, EfficientNet-B0's checkpoint falls on the
+final epoch of its budget, which suggests a longer schedule could squeeze
+out slightly more and is noted as a limitation in
+Section~\ref{sec:discussion}. That the fastest- and slowest-converging
+models are both frozen-backbone transfer models with near-identical heads
+shows convergence speed here is a property of how linearly separable the
+pretrained embedding already is, not of trainable capacity.
 
 \section{Inference and Performance Evaluation}
 \subsection{Evaluation Protocol}
@@ -1500,11 +1478,9 @@ whose early training was unstable (Figure~\ref{fig:customcnn-curves}).
 The strong default lived up to its reputation: 0.9750 accuracy, no class
 below $F_1 = 0.964$, smooth convergence, and near-zero checkpoint-selection
 bias ($-0.006$ macro-$F_1$). Its weakness is cost-effectiveness rather than
-quality: it needs 23.6M parameters and the longest CPU training time of the
-CNNs (2,043\,s) to reach an accuracy that EfficientNet-B0 statistically
-matches with a sixth of the parameters and, on GPU, a fraction of the
-wall-clock. As a deployment artifact it is the largest CNN checkpoint in the
-study for no measurable accuracy benefit.
+quality: it needs 23.6M parameters to reach an accuracy that EfficientNet-B0
+statistically matches with a sixth of them. As a deployment artifact it is
+the largest CNN checkpoint in the study for no measurable accuracy benefit.
 
 \paragraph{EfficientNet-B0.}
 The best result of the study --- 0.9775 accuracy and macro-$F_1$ with only
@@ -1534,10 +1510,9 @@ The structural outlier earns its place in the comparison: it converged
 fastest (best epoch 10), showed zero checkpoint-selection bias (held-out
 macro-$F_1$ \emph{above} tuning), and confirmed that global self-attention
 transfers to aerial imagery even frozen. But at this dataset scale its costs
-are not repaid: 85.8M parameters and 9,378\,s of CPU training --- 4.6$\times$
-ResNet-50's time on comparable hardware --- for an accuracy 1.0 point
-\emph{below} ResNet-50. In Pareto terms ResNet-50 dominates it on both size
-and accuracy. The literature's caution that transformers want more data
+are not repaid: 85.8M parameters --- by far the heaviest training and
+inference footprint of the study --- for an accuracy 1.0 point \emph{below}
+ResNet-50. In Pareto terms ResNet-50 dominates it on both size and accuracy. The literature's caution that transformers want more data
 \cite{Shoaib2025} is thus refined by our result: a frozen ViT is perfectly
 \emph{usable} at 2,378 images, but nothing about the task rewarded its extra
 capacity.
@@ -1548,8 +1523,7 @@ capacity.
 \centering
 \caption{Consolidated comparison. $\Delta F_1$ is held-out minus tuning
 macro-$F_1$ (checkpoint-selection bias; negative = tuning metrics were
-optimistic). Wall-clock times are indicative only (mixed hardware,
-Table~\ref{tab:cost}).}
+optimistic).}
 \label{tab:comparative}
 \small
 \begin{tabular}{lrrrrr}
@@ -1753,9 +1727,8 @@ integrator: maintaining the LaTeX sources, merging members' section drafts,
 and editing the report for a consistent structure and voice.
 
 \paragraph{Tan Jian Xin} implemented and trained the MobileNetV2 transfer
-model, the efficiency-oriented end of the comparison, running the final
-protocol on CPU-only hardware and contributing the accuracy-per-parameter
-analysis of the deployment-constrained design point.
+model, the efficiency-oriented end of the comparison, and contributed the
+accuracy-per-parameter analysis of the deployment-constrained design point.
 
 \paragraph{Kaiser Yee} implemented and trained the ViT-B/16 transfer model,
 including the input-resize fix required by ViT's fixed position-embedding
@@ -1806,7 +1779,7 @@ as team-wide events, because any silent change would invalidate everyone's
 prior runs. The fixed result schema was the quiet hero: because every run
 wrote the same JSON structure, cross-model tables assembled themselves
 without transcription, and each run's metadata (git commit, seed, split
-counts, parameter counts, duration, hardware) made every number in this
+counts, parameter counts, best epoch) made every number in this
 report auditable months later.
 
 We also learnt when to renegotiate the contract. The pipeline originally used
@@ -1851,10 +1824,10 @@ photometric jitter that destroyed the very texture cues our EDA said the task
 depends on taught the same inspect-your-data lesson from the other side.
 
 Environment work was its own education: getting TensorFlow's GPU path
-working under WSL2, pinning Python and TensorFlow versions across five
-machines, and accepting that some members would train on CPU. Determinism
-plus recorded metadata is what made that heterogeneity safe --- identical
-seeds and splits meant hardware changed only wall-clock, never results. The
+working under WSL2 and pinning Python and TensorFlow versions across five
+machines. Determinism plus recorded metadata is what made five separate
+development environments safe --- identical seeds and splits meant a local
+setup could never silently change a result. The
 automated contract tests earned their keep repeatedly, catching regressions
 in the split logic before they could corrupt anyone's run. If we started
 again, we would write those tests first, not midway.
@@ -2011,7 +1984,7 @@ python train.py --model resnet50 --run-name resnet50 \
 \end{verbatim}
 
 Each run writes \texttt{results/<run>\_run.json} (metadata: seed, git
-commit, split counts, parameters, best epoch, duration, hardware),
+commit, split counts, parameters, best epoch),
 \texttt{<run>\_history.json} (per-epoch curves),
 \texttt{<run>\_tuning.json} and \texttt{<run>.json} (fixed-schema metrics on
 the tuning and held-out sets), and the corresponding confusion-matrix and
