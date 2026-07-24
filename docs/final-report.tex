@@ -1048,7 +1048,6 @@ Section~\ref{sec:comparative}.
 % 2.3M total / 5.1K trainable — efficiency-oriented baseline.
 \todo{}
 \subsection{Vision Transformer (ViT)}
-\todo{Incomplete}
 % 85.8M total / 3.1K trainable; input resize fix; attention-based contrast
 % to the convolutional models.
 The Vision Transformer \cite{Dosovitskiy2021} applies a pure Transformer
@@ -1062,6 +1061,9 @@ different approach from our four convolutional models, which is exactly the
 contrast our comparison needs: aerial scene categories such as dense versus
 sparse residential are distinguished less by any single local texture than
 by the overall spatial arrangement of buildings, roads, and vegetation.
+Pretrained ViTs have already been shown to transfer effectively to
+remote-sensing scene classification at exactly this kind of scale
+\cite{Bazi2021}.
 
 We use the ViT-B/16 backbone pretrained on ImageNet as a frozen feature
 extractor and train only a small classification head on the CLS token
@@ -1103,18 +1105,37 @@ $224\times224$, so our ViT is arguably the only model evaluated at its
 native pretraining resolution. The resize is placed after the shared
 augmentation, so regularisation is applied identically to all five models.
 Second, the backbone is frozen: ViTs lack the inductive biases of
-convolutions and are known to need large datasets when fine-tuned, so with
-only 2{,}798 usable training images we fit just the 3{,}076-parameter head
+convolutions and are known to need large datasets or heavy augmentation
+when trained or fine-tuned directly \cite{Dosovitskiy2021,Touvron2021}, so
+with only 2{,}798 usable training images we fit just the 3{,}076-parameter head
 --- by far the smallest trainable footprint of our five approaches, which
 also makes overfitting nearly impossible. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
 matching how this checkpoint was pretrained.
 
+\paragraph{Choice of variant.}
+ViT-B/16 is the canonical member of the family --- the configuration the
+original paper itself headline-reports \cite{Dosovitskiy2021} --- and each
+alternative variant was excluded on grounds specific to this task. Patch-32
+variants retain a quarter of the tokens ($7\times7$ vs.\ $14\times14$ at
+224 pixels), discarding exactly the spatial resolution the fine-grained
+density classes depend on. The 384-pixel presets would \emph{upsample} our
+native 256-pixel imagery for no information gain at three times the token
+count. Larger backbones (ViT-L, 307M parameters) could raise accuracy only
+marginally under a frozen linear probe \cite{Kornblith2019} while worsening
+the cost--accuracy trade-off that Section~\ref{sec:comparative} shows
+already disfavours ViT's footprint. Partial fine-tuning of the upper
+transformer blocks is the one variant with genuine potential to close the
+accuracy gap to the best CNNs, but it would break the frozen-backbone
+protocol that keeps the five-way comparison clean; we defer it to
+Section~\ref{sec:future}.
+
 \paragraph{Pretraining-source ablation.}
 \label{sec:vit-ablation}
 The choice of pretrained weights was validated experimentally rather than
 assumed. The selected checkpoint was pretrained on ImageNet-21k and then
-finetuned on ImageNet-1k; we compared it against the raw ImageNet-21k
+finetuned on ImageNet-1k, following the AugReg release lineage
+\cite{Steiner2022}; we compared it against the raw ImageNet-21k
 weights (never finetuned to the 1k label space) under an otherwise identical
 protocol --- same seed, split, augmentation, and training flags. Our
 hypothesis was that the more generic 21k features would transfer better to
@@ -1143,7 +1164,9 @@ The hypothesis was cleanly falsified: the 1k-finetuned checkpoint scored
 ended). The explanation lies in how the features are used. Supervised
 finetuning on the 1k label space shapes the CLS embedding to be linearly
 separable --- precisely what a frozen-backbone setup with a softmax head
-requires. The raw 21k features are not poorer, but more entangled: a
+requires, consistent with the strong dependence of penultimate-feature
+transfer on the pretraining objective observed by Kornblith et
+al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but more entangled: a
 3{,}076-parameter head can only draw four hyperplanes through the
 768-dimensional embedding space and cannot re-mix features, so it benefits
 from geometry that finetuning has already organised. The slow crawl of the
