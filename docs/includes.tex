@@ -120,9 +120,11 @@
 
 \setlength{\headheight}{14.5pt}
 \pagestyle{fancy}
-\fancyfoot[ER,OL]{\thepage}%Page no. in the left on
-                                %odd pages and on right on even pages
+\fancyhf{}
+\fancyhead[LE,RO]{\small\nouppercase{\leftmark}}
+\fancyfoot[ER,OL]{\thepage}% Page no. in the outer footer
 \fancyfoot[OC,EC]{\sffamily }
+\renewcommand{\sectionmark}[1]{\markboth{\thesection\quad #1}{}}
 \renewcommand{\headrulewidth}{0.1pt}
 \renewcommand{\footrulewidth}{0.1pt}
 \captionsetup{margin=10pt,font=small,labelfont=bf}
