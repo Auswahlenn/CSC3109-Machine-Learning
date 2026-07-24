@@ -178,15 +178,16 @@ learned representations after AlexNet \cite{Krizhevsky2012} resolved this by
 inferring features directly from data, and the remote-sensing literature has
 followed the same trajectory \cite{Zhu2017, Cheng2020}.
 
-The magnitude of the improvement is well documented. Kwenda et al.
-\cite{Kwenda2024} isolate it cleanly on aerial forest imagery: classical
-classifiers applied to raw pixels reach 0.646 accuracy, whereas the same
-classifiers applied to features extracted by a pretrained deep network reach
-0.940. Zhou et al. \cite{Zhou2018} report the same ordering on the benchmark
-used in this project, where CNN-derived features outperform handcrafted
-descriptors for retrieval. Both results motivate our decision to treat deep
-feature extraction, rather than feature engineering, as the foundation of every
-approach we investigate.
+The magnitude of the improvement is well documented. In an aerial forest
+segmentation experiment, Kwenda et al. \cite{Kwenda2024} report 0.646 accuracy
+for a Random Forest operating without deep features and 0.940 when the same
+classifier uses a concatenated feature vector extracted by VGG16 and ResNet-50.
+The paper describes the two networks as feature extractors but does not state
+that they were frozen throughout. Zhou et al. \cite{Zhou2018} report the same
+broad ordering on the benchmark used in this project, where CNN-derived
+features outperform handcrafted descriptors for retrieval. Both results
+motivate our decision to treat deep feature extraction, rather than feature
+engineering, as the foundation of every approach we investigate.
 
 \subsubsection{Benchmark Datasets}
 
@@ -376,11 +377,11 @@ This uniformity motivated a concrete team decision. The pipeline was
 originally configured at the conventional ImageNet resolution of
 $224 \times 224$, but because the source images are natively $256 \times 256$,
 that setting discarded roughly 23\% of the available pixels before training
-began. The shared configuration was therefore standardised at
-\texttt{IMAGE\_SIZE = 256} so that models operate on the data at its native
-resolution and no downsampling artefacts are introduced. The trade-off --- the
-ImageNet-pretrained backbones no longer receive their native input size --- is
-revisited in Section~\ref{sec:comparative}.
+began. The shared external input was therefore standardised at
+\texttt{IMAGE\_SIZE = 256}. The four CNNs operate on the data at that native
+resolution; ViT accepts the same $256 \times 256$ tensor and then resizes it
+internally to $224 \times 224$ to match its fixed position-embedding grid. The
+trade-off is revisited in Section~\ref{sec:comparative}.
 
 \subsection{Colour Statistics}
 
@@ -465,8 +466,9 @@ Four conclusions carried forward into the design:
 \begin{enumerate}
   \item \textbf{Accuracy is a fair headline metric} (balanced classes), but
     macro-$F_1$ is reported alongside it to expose per-class collapse.
-  \item \textbf{Inputs are standardised at $256 \times 256$}, the native
-    resolution, avoiding avoidable information loss.
+  \item \textbf{All models accept $256 \times 256$ inputs.} The four CNNs retain
+    the native resolution; ViT alone performs a documented internal resize to
+    $224 \times 224$.
   \item \textbf{Texture and structure, not colour, carry the signal}, so the
     augmentation policy must preserve fine-grained texture --- photometric
     jitter is kept deliberately mild for this reason
@@ -484,9 +486,9 @@ Four conclusions carried forward into the design:
 
 A recurring flaw in student-scale deep learning experiments is that the same
 data guides both model selection and final reporting, which inflates the
-headline number without anyone intending to cheat. We designed the pipeline
-specifically to make that mistake impossible, using a three-way split
-implemented once in \texttt{shared/data.py} and shared by all five models.
+headline number without anyone intending to cheat. We designed the pipeline to
+reduce that risk through a three-way split implemented once in
+\texttt{shared/data.py} and shared by all five models.
 
 \paragraph{Three-way split.}
 The provided \texttt{val 23} directory is treated as a \emph{sealed test set}.
@@ -519,13 +521,13 @@ than left to chance, which matters because per-class $F_1$ on a 420-image
 subset is sensitive to even small imbalances.
 
 \paragraph{Determinism.}
-Reproducibility is enforced by seeding the shuffle for class $k$ with
+Split repeatability is supported by seeding the shuffle for class $k$ with
 $\texttt{SEED} + k$ (\texttt{SEED} $=42$) rather than by a global random state.
-Consequently the partition depends only on the file listing --- not on
-execution order, machine, or how many random draws happened earlier in the
-session. Every team member, on every machine, trains on byte-identical
-subsets. The exact counts are recorded in each run's metadata via
-\texttt{get\_split\_counts()}, so any run can be audited after the fact.
+Consequently the partition depends on the file listing rather than execution
+order or earlier random draws. Given the same dataset snapshot and software
+contract, team members should derive the same subsets. The exact counts are
+recorded in each run's metadata via \texttt{get\_split\_counts()}, so any run
+can be audited after the fact.
 
 \paragraph{Why the held-out set must stay sealed.}
 Both \texttt{ModelCheckpoint} and \texttt{EarlyStopping} select the epoch that
@@ -541,24 +543,27 @@ Mechanically, the held-out loader is a separate function that reads
 \texttt{val 23} and is invoked only behind an explicit
 \texttt{--evaluate-held-out} flag, after training has finished. It is never
 passed to \texttt{model.fit} and never influences a callback. Combined with the
-duplicate-image exclusion described above --- which prevents identical pixels
-from appearing on both sides of the split --- no image can reach evaluation
-having been seen during training.
+duplicate-image exclusion described above, this design keeps exact duplicate
+pixels out of both the training and held-out evaluation paths under the shared
+entrypoint.
 
 \paragraph{Deviation from the literature protocol.}
 Our effective proportions are approximately 74/13/13 rather than the 70/15/15
 used by the reference architecture we follow, because the test partition is
 fixed at 400 images by the provided data rather than chosen by us. Since the
-identical split is applied to all five models, this affects absolute values
-only, not the comparison between approaches.
+identical split is applied to all five models, the split choice is controlled
+across approaches even though its sampling uncertainty still affects the
+comparison.
 \subsection{Input Resolution}
 
-All models receive $256 \times 256$ RGB inputs. As established in the
-exploratory analysis, this is the \emph{native} resolution of every image in
-the collection, so no resizing artefact is introduced and no information is
-discarded. The pipeline was initially configured at the conventional ImageNet
-resolution of $224 \times 224$, which would have thrown away 23.4\% of the
-available pixels before training began; standardising on 256 removes that loss.
+All models accept $256 \times 256$ RGB inputs, the \emph{native} resolution of
+every source image. The four CNNs retain that spatial resolution. ViT is the
+documented exception: its saved graph applies bilinear resizing from
+$256 \times 256$ to $224 \times 224$ immediately before the backbone because
+its position embeddings are fixed to a $14 \times 14$ patch grid. Standardising
+the external interface at 256 therefore gives every approach the same input
+contract, but does not imply that every architecture preserves every source
+pixel internally.
 
 The trade-off is that the ImageNet-pretrained backbones no longer operate at
 the resolution they were trained on. We accepted this deliberately: the
@@ -626,8 +631,8 @@ the transfer models) is applied \emph{after} augmentation. Placing rescaling
 first is a subtle but real bug: the brightness layer is configured for a
 $[0,255]$ value range, and feeding it $[0,1]$ inputs saturates the image to
 black. Because augmentation lives inside the model graph rather than in the
-data pipeline, this ordering is fixed at construction time and cannot be got
-wrong at inference.
+data pipeline, this ordering is fixed at construction time and reduces the risk
+of an inference-time ordering mismatch.
 
 \paragraph{Augmentation is training-only.}
 The Keras preprocessing layers are inactive outside training, and the tuning
@@ -640,9 +645,9 @@ architectures might well prefer slightly different settings, but allowing each
 member to tune augmentation independently would confound the comparison: a
 difference in final accuracy could then reflect a better augmentation search
 rather than a better architecture. Holding augmentation constant --- along with
-the data, split, input resolution, and evaluation procedure --- ensures that
-the leaderboard in Section~\ref{sec:results} isolates the effect of
-architecture, which is the stated objective of this study.
+the data, split, external input contract, and evaluation procedure --- reduces
+these sources of confounding and supports the architecture-focused comparison
+in Section~\ref{sec:results}.
 
 \section{Deep Learning Approaches}
 % One subsection per approach (>= number of team members = 5).
@@ -652,11 +657,12 @@ architecture, which is the stated objective of this study.
 % "download and run" without meaningful modification.
 \subsection{Custom CNN (from scratch)}
 \label{sec:customcnn}
-% 26.5M params, all trainable. Serves as the no-pretraining baseline.
+% 26.5M total params; 26,511,444 trainable. No-pretraining baseline.
 
 The custom CNN is the only approach in this study that uses no pretrained
-weights. Every one of its 26,512,212 parameters is learned from our 2,378
-training images alone. Its role is therefore twofold: it is a competitive
+weights. It contains 26,512,212 parameters in total: 26,511,444 trainable
+parameters and 768 non-trainable BatchNorm moving-mean and moving-variance
+state parameters. Its role is therefore twofold: it is a competitive
 architecture in its own right, and it is the experimental control that makes
 the contribution of ImageNet pretraining measurable rather than assumed --- a
 comparison the other four approaches cannot provide on their own.
@@ -667,10 +673,12 @@ Rather than assemble an arbitrary stack of layers, we reproduce the
 \emph{Pyramidal Net} architecture proposed by Abdelmonem et al.
 \cite{Abdelmonem2026}, which was designed specifically for remote-sensing scene
 classification and reports 94.28\% accuracy on a ten-class NWPU-RESISC45 subset
-and 93\% on UC~Merced. The choice is well matched to our setting: the source
-study uses 700 images per class --- the same per-class budget as our partition
---- and operates natively at $256 \times 256$, so its design assumptions
-transfer to our data without reinterpretation.
+and 93\% on UC~Merced. NWPU-RESISC45 contains 700 images per class, but the
+source experiment allocates them 70/15/15 to training, validation, and test, so
+its nominal training allocation is 490 images per class rather than our
+provided 700-image training pool. The shared $256 \times 256$ resolution makes
+the architecture relevant, while the different data budget prevents a
+like-for-like performance comparison.
 
 The name describes the design principle: spatial dimensions contract while
 feature abstraction increases, so the representation narrows toward the
@@ -701,7 +709,9 @@ Flatten & --- & 50{,}176 \\
 Dense block & $512 \rightarrow 256 \rightarrow 64 \rightarrow 16$, ReLU & 16 \\
 Output & Dense, softmax & 4 \\
 \midrule
-\multicolumn{2}{l}{Parameters} & 26{,}512{,}212 (all trainable) \\
+\multicolumn{2}{l}{Parameters} & 26{,}512{,}212 total \\
+\multicolumn{2}{l}{Trainable / non-trainable} &
+26{,}511{,}444 / 768 (BatchNorm state) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -809,7 +819,8 @@ confusing the two classes symmetrically.
 checkpoint was selected. (b) The sealed held-out set. Errors concentrate
 almost entirely in the \texttt{dense\_residential} $\rightarrow$
 \texttt{sparse\_residential} direction, and that confusion is markedly worse on
-the held-out data --- the visual signature of checkpoint-selection bias.}
+the held-out data --- an observed tuning-to-held-out gap consistent with
+selection optimism.}
 \label{fig:customcnn-cm}
 \end{figure}
 
@@ -818,10 +829,11 @@ classes share an identical visual vocabulary and are separated only by a
 continuous density threshold, so the distinction requires fine-grained texture
 discrimination rather than scene-level cues.
 
-\paragraph{Checkpoint-selection bias is class-specific.}
+\paragraph{The observed selection gap is class-specific.}
 Comparing the two panels of Figure~\ref{fig:customcnn-cm} quantifies the
-optimism introduced by selecting the checkpoint on tuning accuracy, and shows
-that it is not spread evenly across classes (Table~\ref{tab:customcnn-bias}).
+tuning-to-held-out difference after selecting the checkpoint on tuning
+accuracy, and shows that it is not spread evenly across classes
+(Table~\ref{tab:customcnn-bias}).
 
 \begin{table}[H]
 \centering
@@ -957,8 +969,8 @@ Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
 \end{tabular}
 \end{table}
 Three design decisions are worth spelling out. First, the backbone is frozen rather than fine-tuned: with 2,378 training images against 23.6M parameters, full fine-tuning risks overfitting, and freezing matches what the other transfer models do, keeping the comparison clean. Only the 8,196 parameter head is fitted to our data. Second, augmentation and preprocessing live inside the model graph rather than in the data
-pipeline, so the deployed checkpoint cannot be fed wrongly normalised inputs
---- what the model sees at inference is exactly what it saw in training.
+pipeline, reducing the risk of a training--serving normalisation mismatch: the
+same graph-level preprocessing is used during training and inference.
 Third, the two head hyper-parameters (dropout rate and learning rate) are
 exposed as controlled experiment factors; the chosen values (0.3 and
 $10^{-3}$) were selected on the internal tuning split and never against the
@@ -1015,10 +1027,11 @@ checkpoint to overfit the tuning split.}
 \label{fig:resnet50-cm}
 \end{figure}
 
-\paragraph{Checkpoint-selection bias is negligible.}
+\paragraph{The observed tuning-to-held-out gap is small.}
 Repeating the tuning-versus-held-out comparison made for the custom CNN
-(Table~\ref{tab:resnet50-bias}) produces a very different picture. Every class
-transfers within $\pm 0.02$ $F_1$, and the macro-$F_1$ falls by only 0.006 ---
+(Table~\ref{tab:resnet50-bias}) produces a very different picture. Every
+per-class difference is within $\pm 0.02$ $F_1$, and macro-$F_1$ falls by only
+0.006 ---
 roughly one tenth of the 0.063 drop seen in the from-scratch model.
 
 \begin{table}[H]
@@ -1040,15 +1053,14 @@ Macro-$F_1$ & 0.9810 & 0.9750 & $-0.0059$ \\
 \end{tabular}
 \end{table}
 
-The contrast is instructive, and it is explained by trainable capacity rather
-than by architecture family. Selecting a checkpoint on tuning accuracy can only
-inflate the reported score to the extent that the model is able to fit the
-idiosyncrasies of those 420 images. ResNet-50 adapts 8,196 parameters and shows
-a 0.6-point optimism; the custom CNN adapts 26,511,444 and shows a 6.3-point
-optimism concentrated almost entirely in one class. Freezing the backbone
-therefore buys not only accuracy but also \emph{trustworthiness of the
-validation signal} --- a benefit that a leaderboard alone does not reveal. This
-relationship is examined across all five models in
+The contrast is consistent with trainable capacity contributing to selection
+overfit, but one run cannot isolate capacity from architecture or sampling
+variation. ResNet-50 adapts 8,196 parameters and shows a 0.6-point observed
+drop; the custom CNN adapts 26,511,444 and shows a 6.3-point drop concentrated
+almost entirely in one class. Freezing the backbone therefore coincides here
+with both stronger accuracy and a more stable \emph{validation signal}, without
+establishing that it alone caused either result. The relationship is examined
+across all five models in
 Section~\ref{sec:comparative}.
 
 \subsection{EfficientNet-B0 (transfer learning)}
@@ -1461,7 +1473,7 @@ convolutions and are known to need large datasets or heavy augmentation
 when trained or fine-tuned directly \cite{Dosovitskiy2021,Touvron2021}, so
 with only 2{,}798 usable training images we fit just the 3{,}076-parameter head
 --- by far the smallest trainable footprint of our five approaches, which
-also makes overfitting nearly impossible. Third, preprocessing scales
+limits its capacity to overfit the tuning split. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
 matching how this checkpoint was pretrained.
 
@@ -1584,17 +1596,16 @@ density judgement rather than a structural one --- absorbs most of the
 mistakes, while \texttt{coastal\_mansion} and \texttt{nursing\_home} are
 essentially never confused with each other.
 
-\paragraph{Checkpoint-selection bias is absent.}
+\paragraph{No positive selection gap was observed.}
 Repeating the tuning-versus-held-out comparison made for the previous
 models (Table~\ref{tab:vit-bias}), the ViT sits at the far end of the
 capacity spectrum: with only 3{,}076 trainable parameters, macro-$F_1$ is
 actually \emph{higher} on the held-out set than on the tuning split used to
-select the checkpoint ($+0.010$). The selection optimism visible in the
-custom CNN (6.3 points) and faintly in ResNet-50 (0.6 points) has here
-fallen below zero --- the model cannot meaningfully fit the idiosyncrasies
-of 420 tuning images, so the tuning signal transfers essentially unbiased.
-This completes the capacity-versus-trustworthiness relationship examined in
-Section~\ref{sec:comparative}.
+select the checkpoint ($+0.010$). This run therefore shows no positive
+tuning-to-held-out optimism for ViT. The direction is consistent with limited
+selection overfit, but one run on two small evaluation sets cannot establish
+that checkpoint-selection bias is zero. Section~\ref{sec:comparative} discusses
+this observed gap alongside trainable capacity.
 
 \begin{table}[H]
 \centering
@@ -1625,9 +1636,9 @@ Every final run in this report was produced by a single training entrypoint,
 under \texttt{models/} that exposes one function,
 \texttt{build\_model(num\_classes, augmentation)}; the entrypoint injects the
 shared augmentation pipeline, builds the shared data splits, trains, selects a
-checkpoint, and writes results in a fixed schema. A member cannot accidentally
-train on a different split, augmentation policy, or evaluation procedure,
-because none of those are implemented in the per-model code.
+checkpoint, and writes results in a fixed schema. Keeping split construction,
+augmentation, and evaluation outside the per-model modules reduces accidental
+protocol drift and makes deviations visible in shared code and metadata.
 Table~\ref{tab:protocol} lists the variables held constant across all five
 final runs.
 
@@ -1658,7 +1669,7 @@ Framework & TensorFlow 2.21.0 \\
 Checkpoint selection and early stopping both monitor accuracy on the internal
 tuning split; the held-out set is reachable only through a separate loader
 behind an explicit \texttt{--evaluate-held-out} flag, as described in
-Section~\ref{sec:splits}. Reproducibility is enforced at two levels: the
+Section~\ref{sec:splits}. Repeatability is supported at two levels: the
 shared \texttt{set\_seed()} seeds every random number generator and enables
 TensorFlow's deterministic kernels, and every run writes a metadata record
 (\texttt{results/<run>\_run.json}) capturing the git commit, seed, split
@@ -1851,8 +1862,9 @@ whose early training was unstable (Figure~\ref{fig:customcnn-curves}).
 
 \paragraph{ResNet-50.}
 The strong default lived up to its reputation: 0.9750 accuracy, no class
-below $F_1 = 0.964$, smooth convergence, and near-zero checkpoint-selection
-bias ($-0.006$ macro-$F_1$). Its weakness is cost-effectiveness rather than
+below $F_1 = 0.964$, smooth convergence, and a small observed
+tuning-to-held-out gap ($-0.006$ macro-$F_1$). Its weakness is
+cost-effectiveness rather than
 quality: it needs 23.6M parameters to reach an accuracy that EfficientNet-B0
 statistically matches with a sixth of them. As a deployment artifact it is
 the largest CNN checkpoint in the study for no measurable accuracy benefit.
@@ -1882,12 +1894,13 @@ building-footprint cues that separate institutional from residential blocks.
 
 \paragraph{Vision Transformer (ViT-B/16).}
 The structural outlier earns its place in the comparison: it converged
-fastest (best epoch 10), showed zero checkpoint-selection bias (held-out
-macro-$F_1$ \emph{above} tuning), and confirmed that global self-attention
-transfers to aerial imagery even frozen. But at this dataset scale its costs
-are not repaid: 85.8M parameters --- by far the heaviest training and
-inference footprint of the study --- for an accuracy 1.0 point \emph{below}
-ResNet-50. In Pareto terms ResNet-50 dominates it on both size and accuracy. The literature's caution that transformers want more data
+fastest (best epoch 10), and its held-out macro-$F_1$ was 0.010 above its
+tuning value, so no positive tuning-to-held-out optimism was observed in this
+run. It also showed that frozen global self-attention can transfer to this
+aerial-imagery task. But at this dataset scale its costs are not repaid: 85.8M
+parameters --- by far the heaviest training and inference footprint of the
+study --- for an accuracy 1.0 point \emph{below} ResNet-50. In Pareto terms
+ResNet-50 dominates it on both size and accuracy. The literature's caution that transformers want more data
 \cite{Shoaib2025} is thus refined by our result: a frozen ViT is perfectly
 \emph{usable} at 2,378 images, but nothing about the task rewarded its extra
 capacity.
@@ -1896,9 +1909,8 @@ capacity.
 
 \begin{table}[H]
 \centering
-\caption{Consolidated comparison. $\Delta F_1$ is held-out minus tuning
-macro-$F_1$ (checkpoint-selection bias; negative = tuning metrics were
-optimistic).}
+\caption{Consolidated comparison. $\Delta F_1$ is the observed held-out minus
+tuning macro-$F_1$ gap; a negative value means tuning performance was higher.}
 \label{tab:comparative}
 \small
 \begin{tabular}{lrrrrr}
@@ -1944,19 +1956,16 @@ pipelines removed.
 \subsection{Capacity and the Trustworthiness of Validation Metrics}
 
 The $\Delta F_1$ column of Table~\ref{tab:comparative} completes the analysis
-threaded through Section~4. Checkpoint selection maximises tuning accuracy,
-so tuning metrics are optimistic to the degree that the model can fit the
-idiosyncrasies of the 420 tuning images. The effect scales cleanly with
-trainable capacity: 26.5M trainable parameters bought $-6.3$ points of
-optimism; 8,196 bought $-0.6$; and at 3,076--5,124 parameters the sign
-flips, with held-out performance slightly \emph{exceeding} tuning
-performance --- the models cannot meaningfully overfit 420 images, so the
-tuning signal transfers unbiased, and the residual $\pm 1$-point wobble is
-sampling noise between two small evaluation sets. The practical insight for
-small-data work: freezing the backbone does not just prevent overfitting the
-training set, it makes a small validation split \emph{sufficient} for honest
-model selection. Teams without the luxury of a sealed test set should regard
-validation scores from high-capacity models with proportional suspicion.
+threaded through Section~4. Checkpoint selection maximises tuning accuracy, so
+a negative gap is consistent with selection optimism. The custom CNN shows a
+$-6.3$-point gap and ResNet-50 a $-0.6$-point gap; for models with
+3,076--5,124 trainable parameters the sign reverses and held-out performance
+slightly exceeds tuning. These observations are consistent with reduced
+selection overfit when only a small head is trained, but a single run and two
+small evaluation sets do not identify the true bias or distinguish it from
+sampling variability. The practical implication is therefore cautious:
+freezing the backbone can make validation-based selection more stable, while
+validation scores from high-capacity models warrant greater scrutiny.
 
 \subsection{Error Overlap and Diversity}
 
@@ -2060,17 +2069,15 @@ Three choices are worth justifying.
 
 \textbf{Preprocessing travels with the model.} Augmentation and any
 normalisation are layers \emph{inside} the saved Keras graph rather than steps
-in a separate inference script. The deployed artifact therefore cannot be fed
-incorrectly scaled inputs: what the model sees at inference is exactly what it
-saw during training. This eliminates the most common category of
-training--serving skew, and it is why the container needs no preprocessing code
-of its own.
+in a separate inference script. Reusing graph-level normalisation at inference
+reduces the risk of incorrectly scaled inputs and training--serving skew; the
+container therefore needs no separate normalisation implementation.
 
 \textbf{The container imports the same configuration module as training.}
 Class names and input resolution are read from \texttt{shared/config.py}, the
-identical file used to produce the checkpoint, so the label ordering displayed
-in the interface cannot drift from the ordering the model was trained on. A
-hard-coded class list in the application would be a silent correctness hazard.
+same configuration module used to produce the checkpoint. This shared source,
+together with the deployment contract test, makes label-order drift detectable
+and avoids a second hard-coded class list in the application.
 
 \textbf{CPU-only TensorFlow.} The image pins \texttt{tensorflow-cpu} rather
 than the full distribution. Inference on a single image does not benefit
@@ -2169,8 +2176,10 @@ tightened to embedded hardware, MobileNetV2 gives up 2 accuracy points for a
 
 \paragraph{Limitations.}
 Four limitations bound our claims. (i) Every result is a single run at seed
-42; without repetition across seeds we cannot attach variances, though the
-determinism of the pipeline makes each number exactly reproducible. (ii) The
+42; without repetition across seeds we cannot attach variances. Fixed seeds,
+deterministic operations, and recorded metadata improve repeatability within
+the pinned environment, but exact cross-machine equivalence was not
+experimentally established. (ii) The
 400-image test set implies roughly $\pm 1.5$-point confidence intervals at
 the top of the leaderboard, so the ordering among the four transfer models is
 not statistically resolved --- only the transfer-versus-scratch gap is.
@@ -2264,8 +2273,9 @@ instruction to be careful. The lasting lesson of this project is that
 carefulness does not scale across five people and dozens of runs --- the
 protection has to be built into the code. We designed the pipeline so that
 the held-out loader is a separate function behind an explicit flag, never
-passed to \texttt{model.fit} and never visible to a callback, which made the
-leakage mistake structurally impossible rather than merely discouraged.
+passed to \texttt{model.fit} and never visible to a callback. This separation
+makes accidental leakage less likely and easier to audit, although the explicit
+evaluation flag means the protocol still depends on disciplined use.
 
 The payoff was concrete. Our custom CNN's tuning macro-$F_1$ of 0.908
 overstated its true held-out 0.845 by more than six points, with the entire
@@ -2296,8 +2306,8 @@ $224 \times 224$ inputs; the EDA showed this discarded 23\% of native pixels,
 and changing it was cheap precisely because we caught it before anyone had
 results to invalidate. The general lesson: agree the controlled variables
 before training starts, change them only by consensus, and instrument
-everything so that ``which configuration produced this number?'' is never a
-matter of memory.
+everything so that each reported number remains traceable to recorded
+configuration and metadata.
 
 \subsection{Transfer Learning in a Low-Data Regime}
 
@@ -2334,9 +2344,10 @@ depends on taught the same inspect-your-data lesson from the other side.
 
 Environment work was its own education: getting TensorFlow's GPU path
 working under WSL2 and pinning Python and TensorFlow versions across five
-machines. Determinism plus recorded metadata is what made five separate
-development environments safe --- identical seeds and splits meant a local
-setup could never silently change a result. The
+machines. Deterministic settings, identical split rules, and recorded metadata
+reduced the risk of unnoticed differences between five development
+environments, while hardware and dependency variations could still affect
+exact numerical reproduction. The
 automated contract tests earned their keep repeatedly, catching regressions
 in the split logic before they could corrupt anyone's run. If we started
 again, we would write those tests first, not midway.
@@ -2497,10 +2508,11 @@ commit, split counts, parameters, best epoch),
 \texttt{<run>\_history.json} (per-epoch curves),
 \texttt{<run>\_tuning.json} and \texttt{<run>.json} (fixed-schema metrics on
 the tuning and held-out sets), and the corresponding confusion-matrix and
-training-curve figures. Determinism is enforced by the shared
-\texttt{set\_seed()} (seeded RNGs plus deterministic TensorFlow kernels), so
-reruns on the same software versions reproduce the reported numbers exactly;
-TensorFlow 2.21.0 was used for all final runs.
+training-curve figures. The shared \texttt{set\_seed()} seeds the random number
+generators and requests deterministic TensorFlow kernels. This supports
+repeatability under the recorded environment, but exact numerical equivalence
+across reruns or machines is not claimed; TensorFlow 2.21.0 was used for all
+final runs.
 
 \end{document}
 
