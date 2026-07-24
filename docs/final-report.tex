@@ -1606,15 +1606,141 @@ reporting it, because building an ensemble after seeing held-out results
 would itself constitute test-set leakage under our protocol.
 
 \section{Deployment via Containerisation}
-% Docker image: python:3.12-slim, Streamlit UI (frontend/web.py) on port 8501,
-% healthcheck, best-model checkpoint baked in. Upload an aerial image ->
-% predicted label + confidence (softmax). Include architecture diagram,
-% build/run commands, and UI screenshot.
-% NOTE: deploy the BEST model — EfficientNet-B0 (0.9775 held-out macro-F1).
-% The dockerfile currently copies custom_cnn_best.keras, so both the COPY line,
-% .dockerignore allow-list, and frontend/web.py MODEL_PATH must be switched to
-% efficientnet_b0_best.keras before the final build.
-\todo{Deployment description + screenshots}
+\label{sec:deployment}
+% NOTE: the dockerfile, .dockerignore allow-list, and frontend/web.py MODEL_PATH
+% must all point at efficientnet_b0_best.keras before the final build.
+
+A model that exists only as a checkpoint in a researcher's working directory is
+not usable by anyone else. The final stage of this project therefore packages
+the best-performing classifier as a self-contained container image that accepts
+an aerial image through a web interface and returns a predicted category with
+per-class confidence scores.
+
+\subsection{Deployed Model}
+
+The deployed classifier is \textbf{EfficientNet-B0}, selected on held-out
+macro-$F_1$ (0.9775, Section~\ref{sec:results}). It is also the most practical
+choice independently of accuracy: at 4.05M parameters its checkpoint is roughly
+an order of magnitude smaller than the custom CNN's 304\,MB, which materially
+affects image size, registry push time, and container start-up. Selecting on the
+sealed held-out set rather than the tuning split matters here --- the deployment
+decision inherits the same evidential standard as the rest of the study.
+
+\subsection{Container Architecture}
+
+The image is built from \texttt{python:3.12-slim} and contains four layers of
+interest, ordered so that the expensive dependency installation is cached and
+only the cheap application layers rebuild when code changes
+(Table~\ref{tab:container}).
+
+\begin{table}[H]
+\centering
+\caption{Container image composition.}
+\label{tab:container}
+\small
+\begin{tabular}{lll}
+\toprule
+Layer & Contents & Purpose \\
+\midrule
+Base & \texttt{python:3.12-slim} & minimal Python runtime \\
+Dependencies & \texttt{frontend/requirements.txt} & Streamlit, TensorFlow-CPU, Pillow, NumPy \\
+Shared code & \texttt{shared/} & class names and input size from \texttt{config.py} \\
+Application & \texttt{frontend/web.py} & Streamlit inference interface \\
+Model & \texttt{results/<model>\_best.keras} & trained checkpoint \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The container exposes port 8501 and declares a \texttt{HEALTHCHECK} that polls
+Streamlit's \texttt{/\_stcore/health} endpoint, so an orchestrator can
+distinguish a started container from a genuinely ready one. The entrypoint runs
+Streamlit bound to \texttt{0.0.0.0} so the service is reachable from outside the
+container.
+
+\subsection{Inference Pipeline}
+
+At request time the application performs four steps: it loads the uploaded file
+and converts it to RGB, resizes it to the \texttt{IMAGE\_SIZE} imported from
+\texttt{shared/config.py}, runs a single forward pass, and renders the result as
+a predicted label with its confidence percentage plus a bar chart of the full
+softmax distribution over all four classes. Presenting the complete distribution
+rather than only the argmax is deliberate: on a fine-grained problem where
+\texttt{dense\_residential} and \texttt{sparse\_residential} are genuinely
+confusable, a user benefits from seeing that a prediction was made at 0.55
+against 0.40 rather than at 0.99.
+
+The model is loaded once and cached with Streamlit's
+\texttt{@st.cache\_resource} decorator, so the checkpoint is deserialised on
+first request rather than on every upload. Loading is wrapped in exception
+handling: if the checkpoint cannot be read --- most plausibly a Keras version
+mismatch --- the interface starts in a clearly labelled preview mode and
+displays the underlying error rather than failing silently or crashing.
+
+\subsection{Design Decisions}
+
+Three choices are worth justifying.
+
+\textbf{Preprocessing travels with the model.} Augmentation and any
+normalisation are layers \emph{inside} the saved Keras graph rather than steps
+in a separate inference script. The deployed artifact therefore cannot be fed
+incorrectly scaled inputs: what the model sees at inference is exactly what it
+saw during training. This eliminates the most common category of
+training--serving skew, and it is why the container needs no preprocessing code
+of its own.
+
+\textbf{The container imports the same configuration module as training.}
+Class names and input resolution are read from \texttt{shared/config.py}, the
+identical file used to produce the checkpoint, so the label ordering displayed
+in the interface cannot drift from the ordering the model was trained on. A
+hard-coded class list in the application would be a silent correctness hazard.
+
+\textbf{CPU-only TensorFlow.} The image pins \texttt{tensorflow-cpu} rather
+than the full distribution. Inference on a single image does not benefit
+meaningfully from a GPU, and the CPU build avoids bundling CUDA libraries that
+would inflate the image substantially and require GPU-enabled hosts.
+
+\subsection{Build and Deployment}
+
+The image is built and published with:
+
+\begin{verbatim}
+docker build -t <username>/<repository>:<version> .
+docker push <username>/<repository>:<version>
+docker run --name <container> -p 8501:8501 <username>/<repository>:<version>
+\end{verbatim}
+
+The interface is then available at \texttt{http://localhost:8501}. Because
+trained checkpoints exceed the file-size limits of our version-control host,
+\texttt{*.keras} artifacts are excluded from the repository and distributed
+through the container image instead; a \texttt{.dockerignore} allow-list admits
+only the single checkpoint being served, keeping the other models' weights out
+of the build context.
+
+% TODO: insert UI screenshot once captured, e.g.
+% \begin{figure}[htbp]\centering
+%   \includegraphics[width=0.8\linewidth]{docs/figures/deployment_ui.png}
+%   \caption{Streamlit interface: uploaded aerial image, predicted class, and
+%   per-class confidence scores.}\label{fig:deployment-ui}
+% \end{figure}
+
+\subsection{Verification and Limitations}
+
+Deployment is verified by building the image, running the container, and
+uploading held-out aerial images through the interface to confirm that the
+predicted labels and confidence scores match those produced by the evaluation
+pipeline. Separately, the repository includes automated contract tests
+(\texttt{tests/}) covering the shared data pipeline and the training
+entrypoint; these guard the components that produce the deployed artifact, and
+they establish that the split is deterministic, disjoint, and correctly
+excludes the duplicate images identified in Section~\ref{sec:splits}.
+
+Two limitations should be acknowledged. First, the interface itself is not
+covered by automated tests --- verification is manual, through the running
+container. Second, the service is a single-container demonstrator: it performs
+no batching, authentication, request logging, or horizontal scaling, and would
+require an orchestration layer and a proper inference server before production
+use. These are deliberate scope boundaries rather than oversights, given that
+the coursework requirement is a working containerised demonstrator.
 
 \section{Results, Insights, and Discussion}
 \label{sec:discussion}
