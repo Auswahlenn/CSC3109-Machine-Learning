@@ -2,7 +2,7 @@
   "run_name": "resnet50",
   "run_type": "final",
   "model_name": "resnet50",
-  "git_commit": "8a5a3195740913c3a45a5e06bf2598f8eef0d88f",
+  "git_commit": "97e2cdbd7e3359c03440684092c1f8c39eba8836",
   "seed": 42,
   "image_size": 256,
   "batch_size": 16,
@@ -10,7 +10,7 @@
   "epochs_completed": 32,
   "patience": 20,
   "best_epoch": 25,
-  "duration_seconds": 2043.1806389999983,
+  "duration_seconds": 428.17180382000015,
   "model_config": {
     "dropout": 0.3,
     "learning_rate": 0.001
@@ -50,9 +50,11 @@
       "sparse_residential/sparseresidential021.jpg"
     ]
   },
-  "tensorflow_version": "2.21.0",
-  "gpus": [],
-  "checkpoint": "C:\\Users\\daryl\\Desktop\\CSC3109\\CSC3109-Machine-Learning\\results\\resnet50_best.keras",
+  "tensorflow_version": "2.20.0",
+  "gpus": [
+    "/physical_device:GPU:0"
+  ],
+  "checkpoint": "/mnt/c/Users/daryl/Desktop/CSC3109/CSC3109-Machine-Learning/results/resnet50_best.keras",
   "tuning_metrics_file": "resnet50_tuning.json",
   "held_out_metrics_file": "resnet50.json"
 }
