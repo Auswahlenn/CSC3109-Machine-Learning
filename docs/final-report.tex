@@ -1683,7 +1683,6 @@ Early stopping & patience 20, monitoring tuning accuracy \\
 Checkpointing & best epoch by tuning accuracy, best weights restored \\
 Optimiser family & Adam \\
 Loss & categorical cross-entropy over one-hot labels \\
-Framework & TensorFlow 2.21.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2568,6 +2567,45 @@ CSC3109-Machine-Learning/
 |- docs/                 this report
 \end{verbatim}
 
+\subsection{Containerised Model Images}
+\label{sec:appendix-images}
+
+Each member packaged their own approach as a container image so that the
+deployment path was exercised independently five times rather than once. The
+images share the interface described in Section~\ref{sec:deployment} --- the
+same Streamlit front end, the same \texttt{shared/config.py} class ordering and
+input size, and preprocessing embedded in the saved graph --- and differ only in
+the checkpoint they serve. \textbf{The submitted deliverable is the
+EfficientNet-B0 image}, which serves the highest-scoring model
+(Section~\ref{sec:results}); the remaining images are supplementary and are
+listed for completeness and verification.
+
+\begin{table}[H]
+\centering
+\caption{Published container images, one per approach. Each is pulled with
+\texttt{docker pull <reference>} and run with
+\texttt{docker run -p 8501:8501 <reference>}.}
+\label{tab:appendix-images}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Approach & Docker Hub reference & Held-out macro-$F_1$ \\
+\midrule
+EfficientNet-B0 (deployed) & \texttt{4a6b3b/csc3109-efficientnet-b0\_best.keras} & \textbf{0.9775} \\
+ResNet-50        & \texttt{darylchk/resnet50-aerial}          & 0.9750 \\
+ViT-B/16         & \texttt{enteringthefray/vit}               & 0.9652 \\
+MobileNetV2      & \texttt{daddycation23/csc3109-mobilenetv2} & 0.9576 \\
+Custom CNN       & \texttt{xxjiadexx/custom\_cnn}             & 0.8452 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The deployed image was verified after publication by running the held-out
+evaluation inside the container: it reproduced 0.9775 accuracy with the same
+nine misclassified images and the same per-class distribution reported in
+Section~\ref{sec:results}, confirming that the published artifact serves the
+checkpoint the report describes.
+
 \subsection{Reproduction Instructions}
 
 All results in this report can be regenerated from the repository root.
@@ -2600,8 +2638,8 @@ the tuning and held-out sets), and the corresponding confusion-matrix and
 training-curve figures. The shared \texttt{set\_seed()} seeds the random number
 generators and requests deterministic TensorFlow kernels. This supports
 repeatability under the recorded environment, but exact numerical equivalence
-across reruns or machines is not claimed; TensorFlow 2.21.0 was used for all
-final runs.
+across reruns or machines is not claimed. Each run's framework version is
+recorded in its \texttt{\_run.json} metadata.
 
 \end{document}
 
