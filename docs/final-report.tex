@@ -1152,7 +1152,7 @@ not otherwise implemented in this project, reproduced from \cite{Tan2019}.}
 \toprule
 Architecture & Top-1 & Parameters & FLOPs \\
 \midrule
-EfficientNet-B0 & 76.3\% & 5.3M & 0.39B \\
+EfficientNet-B0 & 77.1\% & 5.3M & 0.39B \\
 ResNet-50       & 76.0\% & 26M  & 4.1B \\
 DenseNet-169    & 76.2\% & 14M  & 3.5B \\
 \bottomrule
@@ -1793,9 +1793,11 @@ Custom CNN       & 0.8450 & 0.8772 & 0.8450 & 0.8452 & 26.5M & 24 \\
 
 Two facts dominate the leaderboard. First, the four transfer-learning models
 finish within 2.0 accuracy points of one another (0.9575--0.9775), while the
-from-scratch CNN trails the weakest of them by 11.25 points. The single
-largest factor in this study is therefore not the architecture but the
-presence of ImageNet pretraining. Second, the winner is also nearly the
+from-scratch CNN trails the weakest of them by 11.25 points. The division
+between pretrained and from-scratch approaches is therefore far wider than any
+difference among the pretrained architectures themselves, though the
+from-scratch model differs from the others in more than pretraining alone
+(Section~\ref{sec:dataefficiency}). Second, the winner is also nearly the
 smallest model: EfficientNet-B0 reaches the best accuracy and macro-$F_1$
 with 4.1M parameters, a twentieth of ViT's 85.8M.
 
@@ -1946,6 +1948,7 @@ menu is therefore EfficientNet-B0 by default and MobileNetV2 when the size
 budget is severe.
 
 \subsection{Data Efficiency: What Pretraining Buys}
+\label{sec:dataefficiency}
 
 All four pretrained approaches outperformed the from-scratch baseline: fitting
 3,076--8,196 head parameters on frozen ImageNet features beat fitting 26.5M
@@ -1982,15 +1985,37 @@ sampling variability. The practical implication is therefore cautious:
 freezing the backbone can make validation-based selection more stable, while
 validation scores from high-capacity models warrant greater scrutiny.
 
-\subsection{Error Overlap and Diversity}
+\subsection{Class-Level Error Patterns and Model Diversity}
 
-Do the five models fail on the same images? At the class level, largely yes:
-every confusion matrix concentrates its mass on the
-dense/sparse-residential boundary, and no model ever confuses
-\texttt{coastal\_mansion} with \texttt{nursing\_home} in either direction ---
-the two classes with distinctive global structure. The custom CNN's errors
-look like a magnified superset of the transfer models' errors rather than a
-different failure mode.
+Do the five models fail in the same way? We compare confusion matrices at the
+class level; per-image prediction overlap was not computed, so the following
+describes shared error \emph{directions} rather than shared images.
+
+Two patterns hold across all five. First, no model's errors involve
+\texttt{coastal\_mansion} as a source of confusion with
+\texttt{nursing\_home}: across 2,000 held-out predictions the two classes with
+the most distinctive global structure are confused just twice, both times
+\texttt{nursing\_home} predicted as \texttt{coastal\_mansion} (once each by
+EfficientNet-B0 and MobileNetV2), and never in the opposite direction. Second,
+every model's errors are residential-density or institutional-layout
+judgements; none stem from the coarse scene cues that separate a shoreline
+from a built block.
+
+Beyond that the signatures diverge, and the custom CNN's errors are
+\emph{not} simply a magnified version of the transfer models'. The
+dense/sparse boundary accounts for 58\% of the custom CNN's 62 errors and
+33--43\% of the errors made by EfficientNet-B0, ResNet-50, and ViT, but only
+12\% of MobileNetV2's, whose mistakes are predominantly
+\texttt{nursing\_home}-related (65\%). More tellingly, all four transfer
+models misclassify some \texttt{dense\_residential} images as
+\texttt{nursing\_home} (1--7 images each) whereas the custom CNN makes that
+error zero times, and three of the four confuse
+\texttt{sparse\_residential} as \texttt{dense\_residential} while the custom
+CNN never does. The from-scratch model's errors are thus narrower in kind but
+far larger in volume: it collapses one boundary almost entirely (36 of 100
+\texttt{dense\_residential} images predicted as \texttt{sparse\_residential},
+with no error in the reverse direction) rather than distributing smaller
+mistakes across several boundaries.
 
 Within the transfer models, however, the \emph{direction} of error differs
 instructively. ResNet-50 and EfficientNet-B0 spread their few errors thinly
