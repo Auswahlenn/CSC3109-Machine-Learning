@@ -246,9 +246,10 @@ imagery,'' and this ``is especially important for scenarios with limited
 labeled data.''
 
 The practical question is how much of the network to adapt. Kwenda et al.
-\cite{Kwenda2024} take the conservative extreme, freezing VGG16 and ResNet-50
-entirely and training only a downstream classifier, and still obtain strong
-results. We adopt the same strategy for our three pretrained models: the
+\cite{Kwenda2024} sit at the conservative end, using VGG16 and ResNet-50 as
+feature extractors for a separately trained downstream classifier rather than
+adapting the networks to the target task, and still obtain strong results. We
+adopt an explicitly frozen version of that strategy for our pretrained models: the
 backbone is frozen and only a small classification head is fitted. This
 suppresses overfitting on a small dataset and, equally important for our
 purpose, holds the amount of adaptation constant across the transfer-learning
@@ -665,9 +666,13 @@ The custom CNN is the only approach in this study that uses no pretrained
 weights. It contains 26,512,212 parameters in total: 26,511,444 trainable
 parameters and 768 non-trainable BatchNorm moving-mean and moving-variance
 state parameters. Its role is therefore twofold: it is a competitive
-architecture in its own right, and it is the experimental control that makes
-the contribution of ImageNet pretraining measurable rather than assumed --- a
-comparison the other four approaches cannot provide on their own.
+architecture in its own right, and it is the only approach in the study that
+learns its representation from our data alone, which makes it the reference
+point against which the four pretrained approaches are read. We note at the
+outset that it is not a clean ablation of pretraining: it also differs from
+the transfer models in architecture, trainable capacity, regularisation, and
+learning-rate schedule, so any gap it reveals is a comparison between whole
+approaches rather than an isolated pretraining effect.
 
 \subsubsection{Source Architecture}
 
@@ -919,7 +924,8 @@ used in the source study --- harbour, chaparral, tennis court, industrial area,
 parking lot, forest, beach, overpass, airplane, and baseball diamond --- are
 semantically and visually disjoint, and are separable on coarse cues such as
 dominant colour, the presence of water, or large geometric structures. Features
-sufficient for those distinctions are learnable from 700 images per class. Our
+sufficient for those distinctions proved learnable from the roughly 490
+training images per class available under the source study's 70/15/15 split. Our
 four categories are all residential or institutional building scenes
 distinguished by building density and spatial arrangement, and the
 discriminative features are correspondingly subtler. Our results are consistent
@@ -1149,7 +1155,7 @@ not otherwise implemented in this project, reproduced from \cite{Tan2019}.}
 \toprule
 Architecture & Top-1 & Parameters & FLOPs \\
 \midrule
-EfficientNet-B0 & 76.3\% & 5.3M & 0.39B \\
+EfficientNet-B0 & 77.1\% & 5.3M & 0.39B \\
 ResNet-50       & 76.0\% & 26M  & 4.1B \\
 DenseNet-169    & 76.2\% & 14M  & 3.5B \\
 \bottomrule
@@ -1474,7 +1480,7 @@ augmentation, so regularisation is applied identically to all five models.
 Second, the backbone is frozen: ViTs lack the inductive biases of
 convolutions and are known to need large datasets or heavy augmentation
 when trained or fine-tuned directly \cite{Dosovitskiy2021,Touvron2021}, so
-with only 2{,}798 usable training images we fit just the 3{,}076-parameter head
+with only 2{,}378 images used for gradient updates we fit just the 3{,}076-parameter head
 --- by far the smallest trainable footprint of our five approaches, which
 limits its capacity to overfit the tuning split. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
@@ -1488,10 +1494,12 @@ variants retain a quarter of the tokens ($7\times7$ vs.\ $14\times14$ at
 224 pixels), discarding exactly the spatial resolution the fine-grained
 density classes depend on. The 384-pixel presets would \emph{upsample} our
 native 256-pixel imagery for no information gain at three times the token
-count. Larger backbones (ViT-L, 307M parameters) could raise accuracy only
-marginally under a frozen linear probe \cite{Kornblith2019} while worsening
-the cost--accuracy trade-off that Section~\ref{sec:comparative} shows
-already disfavours ViT's footprint. Partial fine-tuning of the upper
+count. Larger backbones (ViT-L, 307M parameters) were excluded as a design
+choice rather than on a predicted accuracy ceiling: they would multiply an
+already large parameter count by roughly $3.6\times$ and worsen the cost--accuracy
+trade-off that Section~\ref{sec:comparative} shows already disfavours ViT's
+footprint, and we fixed the frozen-probe protocol before any accuracy
+comparison that could have justified the additional cost. Partial fine-tuning of the upper
 transformer blocks is the one variant with genuine potential to close the
 accuracy gap to the best CNNs, but it would break the frozen-backbone
 protocol that keeps the five-way comparison clean; we defer it to
@@ -1533,10 +1541,11 @@ finetuning on the 1k label space shapes the CLS embedding to be linearly
 separable --- precisely what a frozen-backbone setup with a softmax head
 requires, consistent with the strong dependence of penultimate-feature
 transfer on the pretraining objective observed by Kornblith et
-al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but more entangled: a
-3{,}076-parameter head can only draw four hyperplanes through the
-768-dimensional embedding space and cannot re-mix features, so it benefits
-from geometry that finetuning has already organised. The slow crawl of the
+al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but plausibly
+less linearly separable for this task: the head applies only a linear
+transformation to the 768-dimensional embedding and cannot learn additional
+nonlinear feature transformations, so it benefits from geometry that
+finetuning has already organised. The slow crawl of the
 21k run is the visible signature of that harder optimisation problem. With
 full fine-tuning the outcome could well reverse; in the frozen regime, the
 linear-separability effect dominated the domain-shift effect. The 1k
@@ -1787,9 +1796,11 @@ Custom CNN       & 0.8450 & 0.8772 & 0.8450 & 0.8452 & 26.5M & 24 \\
 
 Two facts dominate the leaderboard. First, the four transfer-learning models
 finish within 2.0 accuracy points of one another (0.9575--0.9775), while the
-from-scratch CNN trails the weakest of them by 11.25 points. The single
-largest factor in this study is therefore not the architecture but the
-presence of ImageNet pretraining. Second, the winner is also nearly the
+from-scratch CNN trails the weakest of them by 11.25 points. The division
+between pretrained and from-scratch approaches is therefore far wider than any
+difference among the pretrained architectures themselves, though the
+from-scratch model differs from the others in more than pretraining alone
+(Section~\ref{sec:dataefficiency}). Second, the winner is also nearly the
 smallest model: EfficientNet-B0 reaches the best accuracy and macro-$F_1$
 with 4.1M parameters, a twentieth of ViT's 85.8M.
 
@@ -1854,7 +1865,7 @@ Section~\ref{sec:comparative}.
 
 \paragraph{Custom CNN (Pyramidal Net).}
 Its strength is exactly its role: as the only model with no external weights,
-it isolates what our 2,378 images alone can teach, and on classes with a
+it shows what this architecture can learn from our 2,378 images alone, and on classes with a
 global, scene-level cue it is genuinely competitive ($F_1 = 0.990$ on
 \texttt{coastal\_mansion}, with perfect precision). Its weaknesses follow
 from its capacity being in the wrong place: 97\% of its 26.5M parameters sit
@@ -1935,10 +1946,21 @@ Custom CNN      & 26{,}512{,}212 & 26{,}511{,}444 & 0.8450 & 0.8452 & $-0.0627$ 
 \end{tabular}
 \end{table}
 
-Plotting accuracy against parameter count, only two models sit on the Pareto
-frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most accurate).
-ResNet-50 is dominated by EfficientNet-B0 --- more parameters with a lower
-observed accuracy --- and ViT is dominated by
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\linewidth]{docs/figures/slide8_params_vs_score.png}
+\caption{Held-out accuracy against total parameter count (log scale). Circled
+markers lie on the Pareto frontier: no other model in the study achieves both
+higher accuracy and a smaller parameter count. ResNet-50, ViT-B/16 and the
+custom CNN are each dominated by at least one other approach.}
+\label{fig:pareto}
+\end{figure}
+
+Figure~\ref{fig:pareto} plots accuracy against parameter count. Only two models
+sit on the Pareto frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most
+accurate).
+ResNet-50 is dominated by EfficientNet-B0 --- more parameters for
+statistically indistinguishable accuracy --- and ViT is dominated by
 ResNet-50 on both axes. The custom CNN is dominated by everything: more
 parameters than three of the four transfer models and 11--13 points less
 accuracy. For deployment scenarios in this study's range, the practical
@@ -1946,12 +1968,19 @@ choices are therefore EfficientNet-B0 by default and MobileNetV2 when the size
 budget is severe.
 
 \subsection{Data Efficiency: What Pretraining Buys}
+\label{sec:dataefficiency}
 
-The comparison quantifies transfer learning's value on this task with unusual
-directness, because everything except pretraining is controlled. Fitting
-3,076--8,196 head parameters on frozen ImageNet features beats fitting 26.5M
+All four pretrained approaches outperformed the from-scratch baseline: fitting
+3,076--8,196 head parameters on frozen ImageNet features beat fitting 26.5M
 parameters from scratch by 11.25--13.25 accuracy points, at a fraction of the
-training cost. Moreover, the deficit is concentrated precisely where the task
+training cost. This is consistent with a substantial pretraining advantage in
+our low-data regime, and the data, split, input contract, augmentation, and
+evaluation were held constant across the comparison. The gap cannot, however,
+be attributed to pretraining alone: the baseline also differs in architecture,
+trainable capacity, regularisation, and learning-rate schedule. Isolating the
+pretraining term would require training one backbone twice, from random and
+from pretrained initialisation, which we identify as future work
+(Section~\ref{sec:future}). Moreover, the deficit is concentrated precisely where the task
 is fine-grained: the from-scratch model matches the transfer models on
 \texttt{coastal\_mansion} (a coarse, colour-and-shoreline cue) and loses
 massively on the density classes (Table~\ref{tab:perclass}). This is the
@@ -1976,15 +2005,37 @@ sampling variability. The practical implication is therefore cautious:
 freezing the backbone can make validation-based selection more stable, while
 validation scores from high-capacity models warrant greater scrutiny.
 
-\subsection{Error Overlap and Diversity}
+\subsection{Class-Level Error Patterns and Model Diversity}
 
-Do the five models fail on the same images? At the class level, largely yes:
-every confusion matrix concentrates its mass on the
-dense/sparse-residential boundary, and no model ever confuses
-\texttt{coastal\_mansion} with \texttt{nursing\_home} in either direction ---
-the two classes with distinctive global structure. The custom CNN's errors
-look like a magnified superset of the transfer models' errors rather than a
-different failure mode.
+Do the five models fail in the same way? We compare confusion matrices at the
+class level; per-image prediction overlap was not computed, so the following
+describes shared error \emph{directions} rather than shared images.
+
+Two patterns hold across all five. First, no model's errors involve
+\texttt{coastal\_mansion} as a source of confusion with
+\texttt{nursing\_home}: across 2,000 held-out predictions the two classes with
+the most distinctive global structure are confused just twice, both times
+\texttt{nursing\_home} predicted as \texttt{coastal\_mansion} (once each by
+EfficientNet-B0 and MobileNetV2), and never in the opposite direction. Second,
+every model's errors are residential-density or institutional-layout
+judgements; none stem from the coarse scene cues that separate a shoreline
+from a built block.
+
+Beyond that the signatures diverge, and the custom CNN's errors are
+\emph{not} simply a magnified version of the transfer models'. The
+dense/sparse boundary accounts for 58\% of the custom CNN's 62 errors and
+33--43\% of the errors made by EfficientNet-B0, ResNet-50, and ViT, but only
+12\% of MobileNetV2's, whose mistakes are predominantly
+\texttt{nursing\_home}-related (65\%). More tellingly, all four transfer
+models misclassify some \texttt{dense\_residential} images as
+\texttt{nursing\_home} (1--7 images each) whereas the custom CNN makes that
+error zero times, and three of the four confuse
+\texttt{sparse\_residential} as \texttt{dense\_residential} while the custom
+CNN never does. The from-scratch model's errors are thus narrower in kind but
+far larger in volume: it collapses one boundary almost entirely (36 of 100
+\texttt{dense\_residential} images predicted as \texttt{sparse\_residential},
+with no error in the reverse direction) rather than distributing smaller
+mistakes across several boundaries.
 
 Within the transfer models, however, the \emph{direction} of error differs
 instructively. ResNet-50 and EfficientNet-B0 spread their few errors thinly
@@ -2481,8 +2532,8 @@ ViT-B/16        & $10^{-3}$ & 0.3 & frozen backbone & 3{,}076 \\
 
 \begin{verbatim}
 CSC3109-Machine-Learning/
-|- dataset/set 23/       provided training data (700 images x 4 classes)
-|- dataset/val 23/       sealed held-out set (100 images x 4 classes)
+|- data/set 23/          provided training data (700 images x 4 classes)
+|- data/val 23/          sealed held-out set (100 images x 4 classes)
 |- shared/               frozen team contract: config, data splits,
 |                        augmentation policy, evaluate()
 |- models/<name>/        one module per approach exposing
@@ -2500,7 +2551,7 @@ CSC3109-Machine-Learning/
 \subsection{Reproduction Instructions}
 
 All results in this report can be regenerated from the repository root.
-The dataset directories are expected under \texttt{dataset/} (override with the
+The dataset directories are expected under \texttt{data/} (override with the
 \texttt{CSC3109\_DATA\_DIR} environment variable).
 
 \begin{verbatim}
