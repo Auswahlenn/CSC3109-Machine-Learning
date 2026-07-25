@@ -1,6 +1,6 @@
 # CSC3109 final implementation summary
 
-Verified from the integrated `main` branch on 24 July 2026.
+Verified from the integrated `fix/docs` branch on 25 July 2026.
 
 ## Delivery status
 
@@ -23,6 +23,8 @@ Verified from the integrated `main` branch on 24 July 2026.
   400 held-out images.
 - Every saved model accepts raw `256 x 256` RGB data; model-specific
   preprocessing is embedded in the model graph.
+- A full automated audit checks that all 3,200 source images are readable RGB
+  files at `256 x 256`.
 - Final checkpoints are selected by internal tuning accuracy. Held-out results
   are generated after training and do not feed back into another training run.
 
@@ -64,16 +66,16 @@ FastAPI service.
 
 - `frontend/inference.py` owns the selected checkpoint path, image preparation,
   checkpoint loading, and probability validation.
-- `frontend/web.py` provides image upload, predicted label, confidence, and a
-  complete four-class score chart.
+- `frontend/web.py` provides image upload, predicted label, an uncalibrated
+  maximum softmax score, and a complete four-class score chart.
 - `Dockerfile` copies only `efficientnet_b0_best.keras` and exposes port 8501.
 - The Docker health check polls Streamlit's `/_stcore/health` endpoint.
 - The reviewed image
-  `sha256:8648dd37edb4b2637d1d6911da19e8b1bb6840a9e90a5895fc234bf5006ce45`
-  is 528,328,011 bytes.
+  `sha256:dc5ca9e7cecf91d50f47bd768cbd2b784a3dac1821f90c7564829d43ee9119fb`
+  is 528,328,047 bytes.
 - The verification container reached `healthy`.
-- A held-out coastal-mansion image returned the correct label at 96.3%
-  confidence; the captured UI is included in the report.
+- A held-out coastal-mansion image returned the correct label with a maximum
+  softmax score of 96.3%; the captured UI is included in the report.
 
 There is no machine-to-machine `/predict` API in the final Streamlit
 demonstrator. Adding FastAPI, authentication, request logging, batching, and
@@ -81,8 +83,9 @@ runtime checksum enforcement remains future production work.
 
 ## Verification completed
 
-The root `.venv` collected and passed 19 tests:
+The root `.venv` collected and passed 20 tests:
 
+- full-file image size, colour-mode, and readability audit;
 - deterministic, disjoint split and exact counts;
 - raw image/label batch contract;
 - safe run-name and recursive model loading;
@@ -104,8 +107,8 @@ Docker verification also completed:
 
 - The selected checkpoint is intentionally ignored by Git and must accompany
   the Docker build context or be distributed through the built image.
-- Results are single-seed observations; no confidence intervals or repeated
-  training runs are available.
+- Results are single-seed observations; the report's approximate binomial
+  intervals do not capture variation across repeated training runs.
 - EfficientNet-B0 selected its final checkpoint at the epoch-budget boundary,
   so a longer pre-registered schedule remains worth evaluating.
 - The browser UI itself is verified through the running container; automated

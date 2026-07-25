@@ -42,8 +42,11 @@ if uploaded_file:
     probs = predict_probabilities(model, image)
 
     top = int(np.argmax(probs))
-    st.success(f"Prediction: **{CLASS_NAMES[top]}**  ({probs[top]:.1%} confidence)")
-    st.subheader("Confidence per class")
+    st.success(
+        f"Prediction: **{CLASS_NAMES[top]}**  "
+        f"(maximum softmax score: {probs[top]:.1%})"
+    )
+    st.subheader("Softmax score per class")
     st.bar_chart(
         {CLASS_NAMES[i]: float(probs[i]) for i in range(len(CLASS_NAMES))},
         height=240,
