@@ -1025,8 +1025,8 @@ validation curves; indeed validation accuracy frequently sits \emph{above}
 training accuracy, which is expected here because augmentation is applied to
 the training stream only, so the model is scored on clean images at validation
 time but on flipped, rotated, and jittered ones during training. With so few
-trainable parameters the model has almost no capacity to memorise the training
-set, and the residual oscillation around epochs 13--16 reflects the small size
+trainable parameters the model has substantially less capacity to specialise to
+the training set, and the residual oscillation around epochs 13--16 reflects the small size
 of the 420-image tuning split rather than instability in the model.
 
 \begin{figure}[htbp]
@@ -1254,7 +1254,7 @@ held-out set is easier in general: it is only a 400-image sample, and the
 absolute difference is approximately three correctly classified images.
 Instead, the close tuning/held-out agreement shows that the 5,124-parameter
 head did not specialise strongly to the tuning subset. EfficientNet-B0's main
-weakness is therefore not observed overfitting but unfinished convergence: the
+weakness is therefore not observed overfitting but possible undertraining: the
 best epoch is the last available epoch. A longer schedule or partial
 fine-tuning may improve it, but those are future experiments and cannot be
 introduced after inspecting held-out errors.
@@ -2223,9 +2223,12 @@ well. Architecture choice \emph{among} the four frozen pretrained backbones is
 associated with a 2-point observed range on this task.
 
 \paragraph{Where the remaining errors live.}
-Every model's residual errors concentrate on the dense-versus-sparse
-residential boundary, exactly as the exploratory analysis predicted before
-any training. We read this less as a model deficiency than as a property of
+Every model's residual errors are residential-density or institutional-layout
+judgements rather than the coarse scene distinctions the exploratory analysis
+expected to be easy. The dense-versus-sparse boundary specifically accounts for
+33--58\% of the errors made by four of the five models; MobileNetV2 is the
+exception, with most of its mistakes involving \texttt{nursing\_home}
+(Section~\ref{sec:comparative}). We read this less as a model deficiency than as a property of
 the label space: density is a continuous quantity that the benchmark
 discretises into two names, so scenes near the threshold may be ambiguous ---
 the dataset itself contains one image assigned to two classes
@@ -2325,7 +2328,7 @@ accuracy-per-parameter analysis of the deployment-constrained design point.
 
 \paragraph{Kaiser Yee} implemented and trained the ViT-B/16 transfer model,
 including the input-resize fix required by ViT's fixed position-embedding
-table --- the one genuine integration bug of the project --- and designed and
+table --- a major integration bug of the project --- and designed and
 ran the pretraining-source ablation (ImageNet-21k versus 1k-finetuned
 weights), the study's cleanest example of an experimentally falsified
 assumption.
@@ -2518,6 +2521,7 @@ substituting in-domain pretraining for ImageNet's.
 \clearpage
 \bibliography{mybib}
 
+\clearpage
 \appendix
 \section{Supplementary Material}
 

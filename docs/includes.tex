@@ -67,10 +67,14 @@
 \setmainfont[Scale=.8]{OpenDyslexic-Regular}
 \else
 \usepackage[pdftex,pagebackref,hypertexnames=false,colorlinks]{hyperref} % provide links in pdf
-\hypersetup{pdftitle={},
-  pdfsubject={}, 
-  pdfauthor={\reportauthorOne},
-  pdfkeywords={}, 
+\hypersetup{pdftitle={\reporttitle},
+  pdfsubject={CSC3109 Machine Learning group project: a controlled comparison of five
+    deep learning architectures for fine-grained aerial scene classification},
+  pdfauthor={\reportauthorOne, \reportauthorTwo, \reportauthorThree,
+    \reportauthorFour, \reportauthorFive},
+  pdfkeywords={aerial scene classification, remote sensing, transfer learning,
+    convolutional neural networks, vision transformer, PatternNet,
+    containerised deployment},
   pdfstartview=FitH,
   pdfpagemode={UseOutlines},% None, FullScreen, UseOutlines
   bookmarksnumbered=true, bookmarksopen=true, colorlinks,
