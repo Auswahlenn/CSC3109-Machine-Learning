@@ -245,9 +245,10 @@ imagery,'' and this ``is especially important for scenarios with limited
 labeled data.''
 
 The practical question is how much of the network to adapt. Kwenda et al.
-\cite{Kwenda2024} take the conservative extreme, freezing VGG16 and ResNet-50
-entirely and training only a downstream classifier, and still obtain strong
-results. We adopt the same strategy for our three pretrained models: the
+\cite{Kwenda2024} sit at the conservative end, using VGG16 and ResNet-50 as
+feature extractors for a separately trained downstream classifier rather than
+adapting the networks to the target task, and still obtain strong results. We
+adopt an explicitly frozen version of that strategy for our pretrained models: the
 backbone is frozen and only a small classification head is fitted. This
 suppresses overfitting on a small dataset and, equally important for our
 purpose, holds the amount of adaptation constant across the transfer-learning
@@ -663,9 +664,13 @@ The custom CNN is the only approach in this study that uses no pretrained
 weights. It contains 26,512,212 parameters in total: 26,511,444 trainable
 parameters and 768 non-trainable BatchNorm moving-mean and moving-variance
 state parameters. Its role is therefore twofold: it is a competitive
-architecture in its own right, and it is the experimental control that makes
-the contribution of ImageNet pretraining measurable rather than assumed --- a
-comparison the other four approaches cannot provide on their own.
+architecture in its own right, and it is the only approach in the study that
+learns its representation from our data alone, which makes it the reference
+point against which the four pretrained approaches are read. We note at the
+outset that it is not a clean ablation of pretraining: it also differs from
+the transfer models in architecture, trainable capacity, regularisation, and
+learning-rate schedule, so any gap it reveals is a comparison between whole
+approaches rather than an isolated pretraining effect.
 
 \subsubsection{Source Architecture}
 
@@ -916,7 +921,8 @@ used in the source study --- harbour, chaparral, tennis court, industrial area,
 parking lot, forest, beach, overpass, airplane, and baseball diamond --- are
 semantically and visually disjoint, and are separable on coarse cues such as
 dominant colour, the presence of water, or large geometric structures. Features
-sufficient for those distinctions are learnable from 700 images per class. Our
+sufficient for those distinctions proved learnable from the roughly 490
+training images per class available under the source study's 70/15/15 split. Our
 four categories are all residential or institutional building scenes
 distinguished by building density and spatial arrangement, and the
 discriminative features are correspondingly subtler. ImageNet pretraining
@@ -1471,7 +1477,7 @@ augmentation, so regularisation is applied identically to all five models.
 Second, the backbone is frozen: ViTs lack the inductive biases of
 convolutions and are known to need large datasets or heavy augmentation
 when trained or fine-tuned directly \cite{Dosovitskiy2021,Touvron2021}, so
-with only 2{,}798 usable training images we fit just the 3{,}076-parameter head
+with only 2{,}378 images used for gradient updates we fit just the 3{,}076-parameter head
 --- by far the smallest trainable footprint of our five approaches, which
 limits its capacity to overfit the tuning split. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
@@ -1485,10 +1491,12 @@ variants retain a quarter of the tokens ($7\times7$ vs.\ $14\times14$ at
 224 pixels), discarding exactly the spatial resolution the fine-grained
 density classes depend on. The 384-pixel presets would \emph{upsample} our
 native 256-pixel imagery for no information gain at three times the token
-count. Larger backbones (ViT-L, 307M parameters) could raise accuracy only
-marginally under a frozen linear probe \cite{Kornblith2019} while worsening
-the cost--accuracy trade-off that Section~\ref{sec:comparative} shows
-already disfavours ViT's footprint. Partial fine-tuning of the upper
+count. Larger backbones (ViT-L, 307M parameters) were excluded as a design
+choice rather than on a predicted accuracy ceiling: they would multiply an
+already large parameter count by roughly $3.6\times$ and worsen the cost--accuracy
+trade-off that Section~\ref{sec:comparative} shows already disfavours ViT's
+footprint, and we fixed the frozen-probe protocol before any accuracy
+comparison that could have justified the additional cost. Partial fine-tuning of the upper
 transformer blocks is the one variant with genuine potential to close the
 accuracy gap to the best CNNs, but it would break the frozen-backbone
 protocol that keeps the five-way comparison clean; we defer it to
@@ -1530,10 +1538,11 @@ finetuning on the 1k label space shapes the CLS embedding to be linearly
 separable --- precisely what a frozen-backbone setup with a softmax head
 requires, consistent with the strong dependence of penultimate-feature
 transfer on the pretraining objective observed by Kornblith et
-al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but more entangled: a
-3{,}076-parameter head can only draw four hyperplanes through the
-768-dimensional embedding space and cannot re-mix features, so it benefits
-from geometry that finetuning has already organised. The slow crawl of the
+al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but plausibly
+less linearly separable for this task: the head applies only a linear
+transformation to the 768-dimensional embedding and cannot learn additional
+nonlinear feature transformations, so it benefits from geometry that
+finetuning has already organised. The slow crawl of the
 21k run is the visible signature of that harder optimisation problem. With
 full fine-tuning the outcome could well reverse; in the frozen regime, the
 linear-separability effect dominated the domain-shift effect. The 1k
@@ -1849,7 +1858,7 @@ Section~\ref{sec:comparative}.
 
 \paragraph{Custom CNN (Pyramidal Net).}
 Its strength is exactly its role: as the only model with no external weights,
-it isolates what our 2,378 images alone can teach, and on classes with a
+it shows what this architecture can learn from our 2,378 images alone, and on classes with a
 global, scene-level cue it is genuinely competitive ($F_1 = 0.990$ on
 \texttt{coastal\_mansion}, with perfect precision). Its weaknesses follow
 from its capacity being in the wrong place: 97\% of its 26.5M parameters sit
@@ -1938,11 +1947,17 @@ budget is severe.
 
 \subsection{Data Efficiency: What Pretraining Buys}
 
-The comparison quantifies transfer learning's value on this task with unusual
-directness, because everything except pretraining is controlled. Fitting
-3,076--8,196 head parameters on frozen ImageNet features beats fitting 26.5M
+All four pretrained approaches outperformed the from-scratch baseline: fitting
+3,076--8,196 head parameters on frozen ImageNet features beat fitting 26.5M
 parameters from scratch by 11.25--13.25 accuracy points, at a fraction of the
-training cost. Moreover, the deficit is concentrated precisely where the task
+training cost. This is consistent with a substantial pretraining advantage in
+our low-data regime, and the data, split, input contract, augmentation, and
+evaluation were held constant across the comparison. The gap cannot, however,
+be attributed to pretraining alone: the baseline also differs in architecture,
+trainable capacity, regularisation, and learning-rate schedule. Isolating the
+pretraining term would require training one backbone twice, from random and
+from pretrained initialisation, which we identify as future work
+(Section~\ref{sec:future}). Moreover, the deficit is concentrated precisely where the task
 is fine-grained: the from-scratch model matches the transfer models on
 \texttt{coastal\_mansion} (a coarse, colour-and-shoreline cue) and loses
 massively on the density classes (Table~\ref{tab:perclass}). This is the
