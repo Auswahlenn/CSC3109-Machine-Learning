@@ -2077,10 +2077,10 @@ packaging decision did not feed back into training, hyper-parameter selection,
 or another full held-out run, but it does mean the same held-out set both ranked
 the candidates and supported the reported choice. Its score is therefore not an
 independent post-selection estimate of the deployed model. The selection also
-has a practical basis independently of the one-image lead over ResNet-50: at
-4.05M parameters its checkpoint is roughly an
-order of magnitude smaller than the custom CNN's 304\,MB, which materially
-affects image size, registry push time, and container start-up.
+has a practical basis independently of the one-image lead over ResNet-50: its
+saved checkpoint measures 17\,MB against the custom CNN's 304\,MB, an
+eighteen-fold reduction that materially affects image size, registry push time,
+and container start-up.
 
 \subsection{Container Architecture}
 
