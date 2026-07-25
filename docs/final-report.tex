@@ -1937,8 +1937,19 @@ Custom CNN      & 26{,}512{,}212 & 26{,}511{,}444 & 0.8450 & 0.8452 & $-0.0627$ 
 \end{tabular}
 \end{table}
 
-Plotting accuracy against parameter count, only two models sit on the Pareto
-frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most accurate).
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\linewidth]{docs/figures/slide8_params_vs_score.png}
+\caption{Held-out accuracy against total parameter count (log scale). Circled
+markers lie on the Pareto frontier: no other model in the study achieves both
+higher accuracy and a smaller parameter count. ResNet-50, ViT-B/16 and the
+custom CNN are each dominated by at least one other approach.}
+\label{fig:pareto}
+\end{figure}
+
+Figure~\ref{fig:pareto} plots accuracy against parameter count. Only two models
+sit on the Pareto frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most
+accurate).
 ResNet-50 is dominated by EfficientNet-B0 --- more parameters for
 statistically indistinguishable accuracy --- and ViT is dominated by
 ResNet-50 on both axes. The custom CNN is dominated by everything: more

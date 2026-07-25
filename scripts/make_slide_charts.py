@@ -92,29 +92,47 @@ def slide7(rows) -> None:
 
 
 def slide8(rows) -> None:
+    """Accuracy vs parameter count, with the Pareto frontier marked.
+
+    Frontier = models not dominated on both axes (fewer parameters AND higher
+    accuracy). Used in the video and in the report's Accuracy versus Cost section.
+    """
     fig, ax = plt.subplots(figsize=(13, 6.5))
+
+    # Pareto-optimal: no other model has both fewer params and higher accuracy.
+    frontier = [r for r in rows
+                if not any(o["params"] < r["params"] and o["acc"] > r["acc"]
+                           for o in rows)]
+    frontier.sort(key=lambda r: r["params"])
+    ax.plot([r["params"] for r in frontier], [r["acc"] * 100 for r in frontier],
+            ls="--", lw=1.8, color="#666666", zorder=2,
+            label="Pareto frontier (accuracy vs. size)")
+
     for row in rows:
         colour = TRANSFER if row["pretrained"] else SCRATCH
-        ax.scatter(row["params"], row["acc"] * 100, s=230, color=colour, zorder=3)
+        on_front = row in frontier
+        ax.scatter(row["params"], row["acc"] * 100, s=260, color=colour, zorder=3,
+                   edgecolors="black" if on_front else "none",
+                   linewidths=1.8 if on_front else 0)
         ax.annotate(row["label"], (row["params"], row["acc"] * 100),
-                    textcoords="offset points", xytext=(0, 17),
+                    textcoords="offset points", xytext=(0, 18),
                     ha="center", fontsize=13)
 
     ax.set_xscale("log")
     ax.set_xlabel("Total parameters (log scale)", fontsize=14)
     ax.set_ylabel("Held-out accuracy (%)", fontsize=14)
-    ax.set_title("More parameters did not mean higher accuracy",
-                 fontsize=19, pad=14)
+    ax.set_title("Held-out accuracy versus model size", fontsize=19, pad=14)
     ax.grid(alpha=0.25, zorder=0)
     ax.tick_params(labelsize=13)
     ax.set_ylim(82, 100)
+    ax.legend(fontsize=12, loc="lower left", frameon=False)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
 
     fig.tight_layout()
     out = FIGURES / "slide8_params_vs_score.png"
     fig.savefig(out, dpi=150, facecolor="white")
-    print(f"Saved {out}")
+    print(f"Saved {out}  (frontier: {', '.join(r['label'] for r in frontier)})")
 
 
 def slide9() -> None:
