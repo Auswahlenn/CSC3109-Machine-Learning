@@ -15,11 +15,11 @@ Verified from the integrated `fix/docs` branch on 25 July 2026.
 
 ## Data and evaluation protocol
 
-- `data/set 23` contains the professor-provided 2,800 training images.
+- `dataset/set 23` contains the professor-provided 2,800 training images.
 - Two byte-identical files assigned conflicting labels are excluded logically.
 - The remaining 2,798 images are split deterministically into 2,378 training
   and 420 internal-tuning images.
-- `data/val 23` remains outside fitting and checkpoint selection and contains
+- `dataset/val 23` remains outside fitting and checkpoint selection and contains
   400 held-out images.
 - Every saved model accepts raw `256 x 256` RGB data; model-specific
   preprocessing is embedded in the model graph.
