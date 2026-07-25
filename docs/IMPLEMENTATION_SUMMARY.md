@@ -1,148 +1,115 @@
-# EfficientNet-B0 Phase 3-6 Implementation Summary
+# CSC3109 final implementation summary
 
-Verified on 23 June 2026 from branch `model/effNet-b0`.
+Verified from the integrated `main` branch on 24 July 2026.
 
 ## Delivery status
 
-| Phase | Delivered outcome | Evidence |
+| Area | Current implementation | Evidence |
 |---|---|---|
-| 3 | Leakage-free training/tuning pipeline and end-to-end GPU smoke test | `tests/`, smoke-run records in `agent.md` |
-| 4 | Three controlled EfficientNet-B0 experiments selected on internal tuning macro F1 | `results/efficientnet_b0_experiment_summary.json` |
-| 5 | Reproduced final model, held-out evaluation, checksum manifest, and handoff instructions | `results/efficientnet_b0_final_manifest.json`, `models/EfficientNet-B0/README.md` |
-| 6 | Checksum-verified FastAPI WebUI/API and a healthy non-root Docker container | `results/efficientnet_b0_deployment_verification.json` |
+| Data protocol | Deterministic train/tuning split with isolated held-out evaluation | `shared/data.py`, `tests/test_data_contract.py` |
+| Model comparison | Five final model runs under the shared training contract | `models/`, `results/*_run.json` |
+| Evaluation | Accuracy, macro and per-class precision/recall/F1, confusion matrices | `shared/evaluate.py`, `results/` |
+| Deployment | EfficientNet-B0 served by a Streamlit UI in Docker | `Dockerfile`, `frontend/`, `docs/figures/deployment_ui.png` |
+| Automated checks | Data, training, deployment-path, model-loading, and inference contracts | `tests/` |
+| Report | Full LaTeX report with model analyses and live deployment evidence | `docs/final-report.tex` |
 
-All Phase 3-6 acceptance criteria in `agent.md` are complete.
+## Data and evaluation protocol
 
-## What is implemented
+- `dataset/set 23` contains the professor-provided 2,800 training images.
+- Two byte-identical files assigned conflicting labels are excluded logically.
+- The remaining 2,798 images are split deterministically into 2,378 training
+  and 420 internal-tuning images.
+- `dataset/val 23` remains outside fitting and checkpoint selection and contains
+  400 held-out images.
+- Every saved model accepts raw `256 x 256` RGB data; model-specific
+  preprocessing is embedded in the model graph.
+- Final checkpoints are selected by internal tuning accuracy. Held-out results
+  are generated after training and do not feed back into another training run.
 
-### Data and evaluation protocol
+## Final model comparison
 
-- `dataset/` is the default source root, with `CSC3109_DATA_DIR` as an override.
-- A deterministic stratified split derives 2,378 training and 420 tuning images
-  from the supplied training data.
-- The 400-image held-out set remains outside tuning and checkpoint selection.
-- The byte-identical, conflicting cross-class pair is excluded logically without
-  editing the supplied dataset.
-- Training, tuning, and held-out file counts and paths are preserved in run
-  metadata.
+| Model | Accuracy | Macro F1 | Total parameters | Best epoch |
+|---|---:|---:|---:|---:|
+| EfficientNet-B0 | **0.9775** | **0.9775** | 4,054,695 | 32 |
+| ResNet-50 | 0.9750 | 0.9750 | 23,595,908 | 25 |
+| ViT-B/16 | 0.9650 | 0.9652 | 85,801,732 | 10 |
+| MobileNetV2 | 0.9575 | 0.9576 | 2,263,108 | 30 |
+| Custom CNN | 0.8450 | 0.8452 | 26,512,212 | 24 |
 
-### Model and experiments
+The table reports the fixed 400-image held-out evaluation. Detailed per-class
+metrics and confusion matrices are stored under `results/`.
 
-- `models/EfficientNet-B0/efficientnet_b0.py` implements the shared
-  `build_model(num_classes, augmentation)` contract.
-- The saved model includes augmentation, EfficientNet input handling, an
-  ImageNet-pretrained frozen EfficientNet-B0 backbone, dropout, and a four-class
-  softmax head.
-- Three one-factor experiments compare the baseline against dropout 0.4 and a
-  learning rate of 0.0003.
-- Selection uses internal tuning macro F1 only. The selected baseline uses
-  dropout 0.3 and learning rate 0.001.
-- Run metadata, histories, tuning metrics, per-class metrics, and confusion
-  matrices are committed under `results/`.
+## Selected EfficientNet-B0 artifact
 
-### Final held-out result
+- Checkpoint: `results/efficientnet_b0_best.keras`
+- Handoff manifest: `results/efficientnet_b0_manifest.json`
+- Size: 17,124,387 bytes
+- SHA-256:
+  `b46df5800879aac344866957d489afb9878dc7c8dc0887a8a94e7b082b20bed7`
+- Input: raw `256 x 256 x 3` RGB
+- Backbone: ImageNet-pretrained EfficientNet-B0, frozen
+- Head: dropout 0.3 and four-unit softmax
+- Optimizer: Adam, learning rate 0.001
+- Batch size: 16
+- Epoch budget / selected epoch: 32 / 32
+- Held-out accuracy / macro F1: 0.9775 / 0.9775
 
-| Metric | Value |
-|---|---:|
-| Accuracy | 0.9625 |
-| Macro precision | 0.9632 |
-| Macro recall | 0.9625 |
-| Macro F1 | 0.9625 |
+The manifest records the reviewed local handoff artifact. The current Streamlit
+service does not perform runtime manifest verification.
 
-| Class | Precision | Recall | F1 |
-|---|---:|---:|---:|
-| `coastal_mansion` | 0.9898 | 0.9700 | 0.9798 |
-| `dense_residential` | 0.9495 | 0.9400 | 0.9447 |
-| `nursing_home` | 0.9794 | 0.9500 | 0.9645 |
-| `sparse_residential` | 0.9340 | 0.9900 | 0.9612 |
+## Current deployment
 
-The selected checkpoint is 17,122,054 bytes. Its committed SHA-256 is
-`14fd5941a8734ef81a41d13211aef7128e5f64179d1b805b15e16b6e3b94b773`.
+The final deployment is a Streamlit demonstrator, not the earlier development
+FastAPI service.
 
-### Deployment
+- `frontend/inference.py` owns the selected checkpoint path, image preparation,
+  checkpoint loading, and probability validation.
+- `frontend/web.py` provides image upload, predicted label, confidence, and a
+  complete four-class score chart.
+- `Dockerfile` copies only `efficientnet_b0_best.keras` and exposes port 8501.
+- The Docker health check polls Streamlit's `/_stcore/health` endpoint.
+- The reviewed image
+  `sha256:8648dd37edb4b2637d1d6911da19e8b1bb6840a9e90a5895fc234bf5006ce45`
+  is 528,328,011 bytes.
+- The verification container reached `healthy`.
+- A held-out coastal-mansion image returned the correct label at 96.3%
+  confidence; the captured UI is included in the report.
 
-- FastAPI serves a browser upload interface, readiness response, multipart
-  prediction endpoint, and generated OpenAPI documentation.
-- The service verifies the checkpoint SHA-256 against the manifest during
-  startup.
-- Upload validation covers media type, maximum size, image readability, output
-  shape, finite values, and normalized scores.
-- The Docker image copies only the application, selected checkpoint, manifest,
-  and pinned runtime dependencies.
-- The container runs as `appuser` with UID/GID 10001 and declares a health
-  check.
-- Docker Desktop 4.79.0 and Engine 29.5.3 built a 744,094,351-byte Linux AMD64
-  image. The verification container reached `healthy`; `/`, `/health`, `/docs`,
-  and `/predict` returned HTTP 200.
-- A training-set image was used only to exercise the deployed request path. Its
-  prediction is not used as model-evaluation evidence.
-
-## What improved
-
-- Held-out leakage was removed from tuning, early stopping, and model selection.
-- Experiment changes are controlled one factor at a time and ranked by one
-  recorded selection metric.
-- Seeds, split details, hyperparameters, durations, best epochs, Git commits,
-  and artifacts are retained for reproduction.
-- The final checkpoint is checksum-bound to its class order and preprocessing
-  contract.
-- Training, serialization, evaluation, API validation, and real-checkpoint
-  inference have automated contract coverage.
-- Deployment now has both local-service and actual-container evidence, including
-  health, non-root identity, and an end-to-end image request.
+There is no machine-to-machine `/predict` API in the final Streamlit
+demonstrator. Adding FastAPI, authentication, request logging, batching, and
+runtime checksum enforcement remains future production work.
 
 ## Verification completed
 
-- Full WSL TensorFlow suite: 21 tests passed in 65.33 seconds.
-- Final checkpoint reload and inference: passed.
-- Final checkpoint SHA-256: matched the committed manifest.
-- Docker image build: passed.
-- Container health check: `healthy`.
-- Runtime user: UID/GID 10001.
-- WebUI, health, OpenAPI, and prediction endpoints: HTTP 200.
-- Prediction response: four class scores summing to 0.9999999.
+The root `.venv` collected and passed 19 tests:
+
+- deterministic, disjoint split and exact counts;
+- raw image/label batch contract;
+- safe run-name and recursive model loading;
+- configurable EfficientNet factor validation;
+- Docker and Streamlit checkpoint-path agreement;
+- image preprocessing shape/range;
+- probability output shape and normalization;
+- Keras checkpoint serialization/deserialization;
+- real EfficientNet checkpoint loading and prediction.
+
+Docker verification also completed:
+
+- image build: passed;
+- container health: `healthy`;
+- Streamlit health endpoint: HTTP 200;
+- real held-out upload and inference: passed.
 
 ## Current boundaries
 
-- The repository contains no reportable result from another architecture, so a
-  cross-architecture performance comparison cannot be verified locally.
-- The Docker verification uses CPU inference. TensorFlow reports no CUDA driver
-  inside the container.
-- Functional WebUI delivery is verified over HTTP; pixel-level inspection with
-  the in-app browser is unavailable because its controller encounters a Node
-  module-mode conflict outside this repository.
-- The deployment verification uses one image request and does not constitute a
-  latency, throughput, concurrency, or load benchmark.
-
-## Improvements to consider after Phase 6
-
-1. Add reportable results from the other team architectures using the same split
-   and metric schema, then produce a direct comparison table.
-2. Evaluate partial backbone fine-tuning as a separate controlled experiment,
-   using only the internal tuning split for selection.
-3. Repeat selected experiments across multiple seeds and report the distribution
-   of macro F1 instead of a single run only.
-4. Measure probability calibration on held-out predictions and document any
-   confidence threshold used by the interface.
-5. Add container start, health, and prediction checks to CI and retain the image
-   digest as a build artifact.
-6. Add an SBOM and image vulnerability scan to the release workflow.
-7. Benchmark CPU latency, warm-up time, memory use, throughput, and concurrent
-   requests on the intended deployment hardware.
-8. Evaluate a smaller CPU-specific runtime or an exported inference format while
-   requiring metric parity with the committed Keras checkpoint.
-9. Add browser-level UI tests after resolving the external controller conflict,
-   including invalid uploads and narrow-screen layout.
-10. Add authentication, rate limiting, request logging policy, and transport
-    security before exposing the service outside a trusted local environment.
-11. Define post-deployment monitoring for input drift, class distribution, model
-    version, latency, and prediction failures.
-
-## Key artifacts
-
-- Model handoff: `models/EfficientNet-B0/README.md`
-- Final checkpoint manifest: `results/efficientnet_b0_final_manifest.json`
-- Final held-out metrics: `results/efficientnet_b0_final.json`
-- Experiment ranking: `results/efficientnet_b0_experiment_summary.json`
-- Deployment guide: `deployment/README.md`
-- Deployment verification: `results/efficientnet_b0_deployment_verification.json`
+- The selected checkpoint is intentionally ignored by Git and must accompany
+  the Docker build context or be distributed through the built image.
+- Results are single-seed observations; no confidence intervals or repeated
+  training runs are available.
+- EfficientNet-B0 selected its final checkpoint at the epoch-budget boundary,
+  so a longer pre-registered schedule remains worth evaluating.
+- The browser UI itself is verified through the running container; automated
+  tests cover its inference helpers and artifact contracts rather than
+  pixel-level Streamlit rendering.
+- The deployment is a coursework demonstrator, not a production inference
+  service.

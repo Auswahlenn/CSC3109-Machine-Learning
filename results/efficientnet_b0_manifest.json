@@ -1,0 +1,27 @@
+{
+  "model_name": "efficientnet_b0",
+  "checkpoint": "efficientnet_b0_best.keras",
+  "checkpoint_bytes": 17124387,
+  "checkpoint_sha256": "b46df5800879aac344866957d489afb9878dc7c8dc0887a8a94e7b082b20bed7",
+  "class_names": [
+    "coastal_mansion",
+    "dense_residential",
+    "nursing_home",
+    "sparse_residential"
+  ],
+  "image_size": 256,
+  "channels": 3,
+  "input_range": [
+    0,
+    255
+  ],
+  "model_config": {
+    "dropout": 0.3,
+    "learning_rate": 0.001
+  },
+  "training_git_commit": "0d91df710c7529aefa1f5123787bbfb759306e1b",
+  "held_out_accuracy": 0.9775,
+  "held_out_macro_f1": 0.9775073321770221,
+  "metrics_file": "efficientnet_b0.json",
+  "run_metadata_file": "efficientnet_b0_run.json"
+}

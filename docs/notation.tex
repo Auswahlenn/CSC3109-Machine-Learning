@@ -39,11 +39,8 @@
 \newcommand{\gaussBig}[2]{\mathcal{N}\left(#1,\,#2\right)} % see above, but with brackets that adjust to the height of the arguments
 \newcommand{\gaussxBig}[3]{\mathcal{N}\left(#1\,|\,#2,\,#3\right)} % see above, but with brackets that adjust to the height of the arguments
 \DeclareMathOperator{\cov}{Cov} % covariance (matrix) 
-\ifxetex
+\providecommand{\T}[0]{}
 \renewcommand{\T}[0]{^\top} % transpose
-\else
-\newcommand{\T}[0]{^\top}
-\fi
 % matrix determinant
 \newcommand{\matdet}[1]{
 \left|
@@ -64,10 +61,6 @@
 \newcommand{\orange}[1]{{\color{orange}#1}}
 \newcommand{\magenta}[1]{{\color{magenta}#1}}
 \newcommand{\cyan}[1]{{\color{cyan}#1}}
-
-
-% redefine emph
-\renewcommand{\emph}[1]{\blue{\bf{#1}}}
 
 % place a colored box around a character
 \gdef\colchar#1#2{%

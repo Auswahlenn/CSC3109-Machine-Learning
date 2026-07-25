@@ -1,30 +1,36 @@
-# EfficientNet-B0 reproducibility and handoff
+# EfficientNet-B0 final reproducibility guide
 
-## Selected configuration
+This guide describes the retrained `efficientnet_b0` run used in the final
+report and Docker deployment. The run metadata is recorded in
+`results/efficientnet_b0_run.json`.
 
-Phase 4 selected the frozen-backbone baseline using internal tuning macro F1:
+## Final configuration
 
-- Input: 224 x 224 RGB, raw `[0, 255]` pixels.
-- Shared training-only augmentation: horizontal/vertical flips, rotation,
-  contrast, and brightness.
+- Input: raw `256 x 256 x 3` RGB pixels in `[0, 255]`.
+- Shared training-only augmentation: horizontal/vertical flips, full rotation,
+  zoom, mild contrast, and mild brightness.
 - Backbone: ImageNet-pretrained EfficientNet-B0 with global average pooling.
 - Backbone state: frozen.
 - Classification head: dropout 0.3 and four-unit softmax.
 - Optimizer: Adam with learning rate 0.001.
 - Loss: categorical cross-entropy.
-- Batch size: 32.
+- Batch size: 16.
 - Seed: 42.
-- Epoch budget: 15 with early-stopping patience 3 on internal tuning accuracy.
+- Epoch budget: 32.
+- Early-stopping patience: 20 on internal tuning accuracy.
+- Selected checkpoint epoch: 32.
+- TensorFlow version recorded by the run: 2.21.0.
+
+The saved model owns augmentation and EfficientNet preprocessing, so inference
+must supply raw RGB values rather than pre-normalized tensors.
 
 ## Data protocol
 
 - `dataset/set 23` supplies training and internal tuning data.
-- The deterministic stratified tuning fraction is 15%.
-- The conflicting byte-identical cross-class pair is excluded logically.
-- `dataset/val 23` is held out from fitting, checkpoint selection, and
-  hyperparameter selection.
-- The held-out split is evaluated only for the smoke verification and final
-  selected run; smoke metrics are non-reportable.
+- Two byte-identical images with conflicting class labels are excluded
+  logically by `shared/config.py`.
+- A deterministic stratified 15% tuning split is derived only from `set 23`.
+- `dataset/val 23` is excluded from fitting and checkpoint selection.
 
 Verified split counts:
 
@@ -34,65 +40,87 @@ Verified split counts:
 | Tuning | 420 | 105 | 105 | 105 | 105 |
 | Held-out | 400 | 100 | 100 | 100 | 100 |
 
-## Controlled experiment result
+## Final results
 
-| Run | Dropout | Learning rate | Best epoch | Tuning macro F1 |
-|---|---:|---:|---:|---:|
-| `efficientnet_b0_baseline` | 0.3 | 0.001 | 10 | 0.9646 |
-| `efficientnet_b0_drop04` | 0.4 | 0.001 | 11 | 0.9621 |
-| `efficientnet_b0_lr3e4` | 0.3 | 0.0003 | 9 | 0.9406 |
+| Metric | Tuning | Held-out |
+|---|---:|---:|
+| Accuracy | 0.9690 | **0.9775** |
+| Macro precision | 0.9695 | **0.9779** |
+| Macro recall | 0.9690 | **0.9775** |
+| Macro F1 | 0.9691 | **0.9775** |
 
-The complete experiment manifest is
-`results/efficientnet_b0_experiment_summary.json`.
+Held-out per-class metrics:
 
-## Observed tuning errors
+| Class | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| `coastal_mansion` | 0.9899 | 0.9800 | 0.9849 |
+| `dense_residential` | 0.9796 | 0.9600 | 0.9697 |
+| `nursing_home` | 0.9898 | 0.9700 | 0.9798 |
+| `sparse_residential` | 0.9524 | 1.0000 | 0.9756 |
 
-- `nursing_home` had the strongest per-class F1 at 0.9855.
-- `coastal_mansion` had the lowest per-class F1 at 0.9459 because 12 images
-  from other classes were predicted as coastal mansion.
-- Eight `sparse_residential` images were predicted as `coastal_mansion`.
-- Four `dense_residential` images were predicted as `coastal_mansion`.
-- The repository contains a ResNet50 example implementation but no reportable
-  result artifact from another architecture. Cross-architecture performance
-  comparison cannot be verified from the current repository.
-
-## Final held-out result
-
-- Accuracy: 0.9625.
-- Macro precision: 0.9632.
-- Macro recall: 0.9625.
-- Macro F1: 0.9625.
-- Strongest held-out per-class F1: `coastal_mansion` at 0.9798.
-- Weakest held-out per-class F1: `dense_residential` at 0.9447.
-- The largest held-out confusion was four `dense_residential` images predicted
-  as `sparse_residential`.
-
-The final checkpoint is checksum-tracked in
-`results/efficientnet_b0_final_manifest.json`.
+The held-out set contains nine errors. The largest single confusion is three
+`dense_residential` images predicted as `sparse_residential`.
 
 ## Reproduce training
 
-From PowerShell:
+From the repository root with Python 3.12:
 
 ```powershell
-wsl.exe --distribution Ubuntu --exec /bin/bash -lc `
-  'cd /mnt/c/Users/junki/Desktop/projects/CSC3109-Machine-Learning && bash scripts/run_efficientnet_final.sh'
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pytest
+python train.py --model efficientnet_b0 --run-name efficientnet_b0 `
+  --epochs 32 --patience 20 --batch-size 16 `
+  --run-type final --evaluate-held-out
 ```
 
-The WSL Python environment defaults to `/home/jk/.venvs/csc3109`. Override it
-with `CSC3109_VENV` when invoking `scripts/wsl_tensorflow.sh` if required.
+For WSL GPU training, use the repository wrapper after configuring
+`CSC3109_VENV` if the environment is not at its default location:
 
-## Load the selected model
+```bash
+bash scripts/wsl_tensorflow.sh train.py \
+  --model efficientnet_b0 --run-name efficientnet_b0 \
+  --epochs 32 --patience 20 --batch-size 16 \
+  --run-type final --evaluate-held-out
+```
+
+The checked-in `scripts/run_efficientnet_final.sh` wraps the same final
+configuration for WSL.
+
+## Final artifacts
+
+- `results/efficientnet_b0_best.keras`
+- `results/efficientnet_b0.json`
+- `results/efficientnet_b0_confusion_matrix.png`
+- `results/efficientnet_b0_tuning.json`
+- `results/efficientnet_b0_tuning_confusion_matrix.png`
+- `results/efficientnet_b0_history.json`
+- `results/efficientnet_b0_curves.png`
+- `results/efficientnet_b0_run.json`
+- `results/efficientnet_b0_manifest.json`
+
+The Keras checkpoint is ignored by Git and must be distributed separately or
+inside the Docker image.
+
+Reviewed local checkpoint:
+
+- Size: 17,124,387 bytes
+- SHA-256:
+  `b46df5800879aac344866957d489afb9878dc7c8dc0887a8a94e7b082b20bed7`
+
+## Load and predict
 
 ```python
-from tensorflow import keras
+from PIL import Image
 
-model = keras.models.load_model("results/efficientnet_b0_final_best.keras")
-probabilities = model.predict(raw_rgb_batch)
+from frontend.inference import load_model, predict_probabilities
+
+model, error = load_model("results/efficientnet_b0_best.keras")
+if error:
+    raise RuntimeError(error)
+
+scores = predict_probabilities(model, Image.open("image.jpg"))
 ```
-
-The saved model contains augmentation, preprocessing, backbone, and classifier.
-Keras disables the random augmentation layers during inference.
 
 Fixed class order:
 
@@ -101,13 +129,14 @@ Fixed class order:
 3. `nursing_home`
 4. `sparse_residential`
 
-## Final artifacts
+## Docker deployment
 
-- `results/efficientnet_b0_final_best.keras`
-- `results/efficientnet_b0_final.json`
-- `results/efficientnet_b0_final_confusion_matrix.png`
-- `results/efficientnet_b0_final_tuning.json`
-- `results/efficientnet_b0_final_tuning_confusion_matrix.png`
-- `results/efficientnet_b0_final_history.json`
-- `results/efficientnet_b0_final_run.json`
-- `results/efficientnet_b0_final_manifest.json`
+The final Docker configuration already targets this checkpoint:
+
+```powershell
+docker build -t csc3109-aerial:latest .
+docker run --name csc3109-aerial -p 8501:8501 csc3109-aerial:latest
+```
+
+Open `http://localhost:8501`, upload an aerial image, and inspect the predicted
+label and complete four-class confidence chart.
