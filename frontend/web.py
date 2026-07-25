@@ -10,12 +10,13 @@ sys.path.insert(0, str(REPO_ROOT))
 from shared.config import CLASS_NAMES, IMAGE_SIZE  
 
 
-MODEL_PATH = REPO_ROOT / "results" / "custom_cnn_best.keras"
+MODEL_PATH = REPO_ROOT / "results" / "ViT_best.keras"
 
 @st.cache_resource
-def load_model(model_path):          
+def load_model(model_path):
     try:
         from tensorflow import keras
+        import models.vit.ViT  # registers the custom ViTPreprocess layer
         return keras.models.load_model(model_path, compile=False), None
     except Exception as exc:
         return None, str(exc)

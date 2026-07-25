@@ -6,8 +6,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared/ shared/
 COPY frontend/ frontend/
+# models/vit is required at load time: importing it registers the custom
+# ViTPreprocess layer the checkpoint references.
+COPY models/vit/ models/vit/
 # COPY results/resnet50_best.keras results/resnet50_best.keras
-COPY results/custom_cnn_best.keras results/custom_cnn_best.keras
+COPY results/ViT_best.keras results/ViT_best.keras
 
 EXPOSE 8501
 HEALTHCHECK CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health').status==200 else 1)"

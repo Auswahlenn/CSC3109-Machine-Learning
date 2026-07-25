@@ -11,5 +11,6 @@ results/*
 !results/efficientnet_b0_final_manifest.json
 !results/resnet50_best.keras
 !results/custom_cnn_best.keras
+!results/ViT_best.keras
 __pycache__
 *.pyc
