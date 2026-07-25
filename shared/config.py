@@ -51,9 +51,26 @@ CLASS_NAMES: list[str] = [
 # (training, 700 images/class) and "val 23" (held-out validation,
 # 100 images/class).
 _REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_DATA_DIR: str = os.environ.get(
-    "CSC3109_DATA_DIR", os.path.join(_REPO_ROOT, "dataset")
-)
+
+
+def _default_data_dir() -> str:
+    """Locate the data root, accepting either folder name the team uses.
+
+    Members keep the images in either ``data/`` or ``dataset/``; both are
+    gitignored, so the directory name is a local choice and has no effect on the
+    split, the labels, or any reported metric. Detecting whichever exists keeps a
+    single shared config working on every machine. ``data/`` is returned when
+    neither is present so error messages name the documented default.
+    """
+    for name in ("data", "dataset"):
+        candidate = os.path.join(_REPO_ROOT, name)
+        if os.path.isdir(candidate):
+            return candidate
+    return os.path.join(_REPO_ROOT, "data")
+
+
+# CSC3109_DATA_DIR overrides the search entirely (e.g. data held outside the repo).
+_DATA_DIR: str = os.environ.get("CSC3109_DATA_DIR", _default_data_dir())
 
 TRAIN_DIR: str = os.path.join(_DATA_DIR, "set 23")
 VAL_DIR: str = os.path.join(_DATA_DIR, "val 23")

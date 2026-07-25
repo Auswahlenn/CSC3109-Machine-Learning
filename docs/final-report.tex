@@ -1166,7 +1166,7 @@ not otherwise implemented in this project, reproduced from \cite{Tan2019}.}
 \toprule
 Architecture & Top-1 & Parameters & FLOPs \\
 \midrule
-EfficientNet-B0 & 76.3\% & 5.3M & 0.39B \\
+EfficientNet-B0 & 77.1\% & 5.3M & 0.39B \\
 ResNet-50       & 76.0\% & 26M  & 4.1B \\
 DenseNet-169    & 76.2\% & 14M  & 3.5B \\
 \bottomrule
@@ -2547,8 +2547,9 @@ ViT-B/16        & $10^{-3}$ & 0.3 & frozen backbone & 3{,}076 \\
 
 \begin{verbatim}
 CSC3109-Machine-Learning/
-|- dataset/set 23/       provided training data (700 images x 4 classes)
-|- dataset/val 23/       held-out evaluation set (100 images x 4 classes)
+|- data/ or dataset/     images (gitignored; either name is detected)
+|   |- set 23/           provided training data (700 images x 4 classes)
+|   |- val 23/           held-out evaluation set (100 images x 4 classes)
 |- shared/               frozen team contract: config, data splits,
 |                        augmentation policy, evaluate()
 |- models/<name>/        one module per approach exposing
@@ -2566,8 +2567,12 @@ CSC3109-Machine-Learning/
 \subsection{Reproduction Instructions}
 
 All results in this report can be regenerated from the repository root.
-The dataset directories are expected under \texttt{dataset/} (override with the
-\texttt{CSC3109\_DATA\_DIR} environment variable).
+The provided \texttt{set 23} and \texttt{val 23} directories are expected under
+either \texttt{data/} or \texttt{dataset/} in the repository root; the shared
+configuration detects whichever is present. Both names are gitignored, so the
+choice is local to each machine and does not affect the split, the labels, or
+any reported metric. Setting \texttt{CSC3109\_DATA\_DIR} overrides the search
+and allows the images to live outside the repository.
 
 \begin{verbatim}
 # environment
