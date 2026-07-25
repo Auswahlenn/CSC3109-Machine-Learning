@@ -26,11 +26,11 @@ must supply raw RGB values rather than pre-normalized tensors.
 
 ## Data protocol
 
-- `dataset/set 23` supplies training and internal tuning data.
+- `data/set 23` supplies training and internal tuning data.
 - Two byte-identical images with conflicting class labels are excluded
   logically by `shared/config.py`.
 - A deterministic stratified 15% tuning split is derived only from `set 23`.
-- `dataset/val 23` is excluded from fitting and checkpoint selection.
+- `data/val 23` is excluded from fitting and checkpoint selection.
 
 Verified split counts:
 

@@ -1,6 +1,7 @@
 .git
 .venv
 venv
+data
 dataset
 docs
 eda.html
