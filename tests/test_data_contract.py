@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+from PIL import Image
 
 from shared import config
 from shared.data import (
@@ -9,6 +12,23 @@ from shared.data import (
     get_split_counts,
     get_training_datasets,
 )
+
+
+def test_all_source_images_are_readable_rgb_at_native_resolution() -> None:
+    extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+    paths = sorted(
+        path
+        for root in (Path(config.TRAIN_DIR), Path(config.VAL_DIR))
+        for path in root.rglob("*")
+        if path.suffix.lower() in extensions
+    )
+
+    assert len(paths) == 3200
+    for path in paths:
+        with Image.open(path) as image:
+            assert image.size == (config.IMAGE_SIZE, config.IMAGE_SIZE)
+            assert image.mode == "RGB"
+            image.verify()
 
 
 def test_split_is_deterministic_disjoint_and_excludes_conflicts() -> None:

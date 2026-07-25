@@ -86,6 +86,6 @@ def set_seed(seed: int = SEED) -> None:
     keras.utils.set_random_seed(seed)
     # Forces deterministic GPU/CPU kernels. This lives on tf.config (not Keras)
     # because op determinism is a property of the TensorFlow backend runtime.
-    # Costs some speed but guarantees bit-for-bit reproducible results, which is
-    # required for fair comparison.
+    # Costs some speed but improves repeatability within the recorded software
+    # and hardware environment, which supports fair comparison.
     tf.config.experimental.enable_op_determinism()
