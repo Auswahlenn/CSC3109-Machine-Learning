@@ -39,11 +39,11 @@
 \section{Introduction}
 
 \subsection{Background and Motivation}
-Earth-observation satellites, aerial surveys, and high-resolution basemaps now produce far more imagery than analysts can review by hand \cite{Zhu2017}. Extracting useful information from that imagery --- such as the locations of infrastructure and changes over time --- is important for urban planning, environmental monitoring, infrastructure management, and disaster response. Scene classification, labelling an image patch with a land-use category, is a foundational task for many of these applications.
+Earth-observation satellites, aerial surveys, and high-resolution basemaps now produce far more imagery than analysts can review by hand \cite{Zhu2017}. Extracting useful information from that imagery such as the locations of infrastructure and changes over time, are important for urban planning, environmental monitoring, infrastructure management, and disaster response. Scene classification, labelling an image patch with a land-use category, is a foundational task for many of these applications.
 
 Until the early 2010s this problem was tackled with handcrafted features: colour histograms, texture descriptors, SIFT-based bag-of-visual-words. These worked reasonably well for coarse distinctions but stalled because they describe low-level appearance rather than the structure of a scene. Deep convolutional networks changed that by learning features directly from data instead of relying on hand-designed ones. Since AlexNet's ImageNet result \cite{Krizhevsky2012}, they have taken over image classification generally, and the remote-sensing literature shows the same pattern: deep models are now standard on aerial scene classification benchmarks \cite{Cheng2020}.
 
-The dataset used in this project makes the task harder in two specific ways. First, the four classes --- \texttt{coastal\_mansion}, \texttt{dense\_residential}, \texttt{nursing\_home}, and \texttt{sparse\_residential} --- all look visually similar to each other when seen from above. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to recognise layout rather than merely the presence of objects. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pretrained models are central to our approach rather than optional extras.
+The dataset used in this project makes the task harder in two specific ways. First, the four classes: \texttt{coastal\_mansion}, \texttt{dense\_residential}, \texttt{nursing\_home}, and \texttt{sparse\_residential}.These classes look visually similar to each other when seen from above. What separates them is density and spatial arrangement rather than distinct objects or colours, so a model has to recognise layout rather than merely the presence of objects. Second, there are only 700 training images per class, which is little enough that a network trained from scratch would likely overfit. This is why data augmentation and transfer learning from pretrained models are central to our approach rather than optional extras.
 
 We also cared about two things beyond accuracy. One is fair comparison:
 architecture papers are often hard to compare because they differ in data
@@ -174,43 +174,25 @@ We set ourselves six objectives:
 
 \subsubsection{From Handcrafted Descriptors to Learned Features}
 
-Early remote-sensing scene classification relied on handcrafted descriptors ---
-colour histograms, texture measures, and SIFT-based bag-of-visual-words
-representations. These encode low-level appearance and therefore struggle
-precisely where our partition is hardest: distinguishing categories that share
-the same visual vocabulary and differ only in spatial arrangement. The shift to
-learned representations after AlexNet \cite{Krizhevsky2012} resolved this by
-inferring features directly from data, and the remote-sensing literature has
-followed the same trajectory \cite{Zhu2017, Cheng2020}.
+Early remote-sensing scene classification relied on handcrafted descriptors such as colour histograms, texture measures, and SIFT-based bag-of-visual-wordsrepresentations. These encode low-level appearance and therefore struggle precisely where our partition is hardest: distinguishing categories that share the same visual vocabulary and differ only in spatial arrangement. The shift to
+learned representations after AlexNet \cite{Krizhevsky2012} resolved this by inferring features directly from data, and the remote-sensing literature has followed the same trajectory \cite{Zhu2017, Cheng2020}.
 
-The magnitude of the improvement is well documented. In an aerial forest
-segmentation experiment, Kwenda et al. \cite{Kwenda2024} report 0.646 accuracy
-for a Random Forest operating without deep features and 0.940 when the same
-classifier uses a concatenated feature vector extracted by VGG16 and ResNet-50.
-The paper describes the two networks as feature extractors but does not state
-that they were frozen throughout. Zhou et al. \cite{Zhou2018} report the same
-broad ordering on the benchmark used in this project, where CNN-derived
-features outperform handcrafted descriptors for retrieval. Both results
-motivate our decision to treat deep feature extraction, rather than feature
-engineering, as the foundation of every approach we investigate.
+The magnitude of the improvement is well documented. In an aerial forest segmentation experiment, Kwenda et al. \cite{Kwenda2024} report 0.646 accuracy for a Random Forest operating without deep features and 0.940 when the same classifier uses a concatenated feature vector extracted by VGG16 and ResNet-50. The paper describes the two networks as feature extractors but does not state
+that they were frozen throughout. Zhou et al. \cite{Zhou2018} report the samebroad ordering on the benchmark used in this project, where CNN-derived features outperform handcrafted descriptors for retrieval. Both results motivate our decision to treat deep feature extraction, rather than feature engineering, as the foundation of every approach we investigate.
 
 \subsubsection{Benchmark Datasets}
 
-Progress in this field has been driven by successive benchmarks --- UC Merced,
-WHU-RS19, RSSCN7, AID, and NWPU-RESISC45 --- each larger or more finely
+Progress in this field has been driven by successive benchmarks for example: UC Merced,
+WHU-RS19, RSSCN7, AID, and NWPU-RESISC45; each larger or more finely
 categorised than the last. Our data comes from \textbf{PatternNet}
 \cite{Zhou2018}, a 38-class collection of 800 images per class at
-$256 \times 256$ pixels, gathered over US cities via Google Earth imagery and
-the Google Map API.
+$256 \times 256$ pixels, gathered over US cities via Google Earth imagery and the Google Map API.
 
 One design property of PatternNet directly shapes this project. The dataset was
 constructed for \emph{image retrieval}, a task that rewards fine-grained
 category distinctions, so it deliberately separates classes that a
-coarser-grained benchmark would merge. Our partition inherits four such
-categories --- \texttt{coastal\_mansion}, \texttt{dense\_residential},
-\texttt{nursing\_home}, and \texttt{sparse\_residential} --- all of which are
-residential or institutional building scenes. The difficulty we report in
-Section~\ref{sec:results} is therefore intrinsic to the benchmark's design
+coarser-grained benchmark would merge. Our partition inherits four such categories: \texttt{coastal\_mansion}, \texttt{dense\_residential},
+\texttt{nursing\_home}, and \texttt{sparse\_residential}, all of which are residential or institutional building scenes. The difficulty we report in Section~\ref{sec:results} is therefore intrinsic to the benchmark's design
 rather than incidental to our partition.
 
 \subsubsection{Convolutional Architectures}
@@ -244,7 +226,7 @@ identified as a priority direction in \cite{Shoaib2025}.
 With 700 training images per class, training a large network from random
 initialisation risks overfitting. The standard remedy is transfer learning:
 reusing representations learned on a large source corpus such as ImageNet.
-Shoaib et al. \cite{Shoaib2025} state the case directly --- pretrained models
+Shoaib et al. \cite{Shoaib2025} state the case directly that pretrained models
 ``provide robust feature representations that generalize well to aerial
 imagery,'' and this ``is especially important for scenarios with limited
 labeled data.''
@@ -476,8 +458,7 @@ Four conclusions carried forward into the design:
     the native resolution; ViT alone performs a documented internal resize to
     $224 \times 224$.
   \item \textbf{Texture and structure, not colour, carry the signal}, so the
-    augmentation policy must preserve fine-grained texture --- photometric
-    jitter is kept deliberately mild for this reason
+    augmentation policy must preserve fine-grained texture. Photometric jitter is kept deliberately mild for this reason
     (Section~\ref{sec:augmentation}).
   \item \textbf{Aerial scenes have no canonical orientation.} Unlike natural
     photographs, a top-down scene is equally valid flipped or rotated, so full
@@ -632,7 +613,7 @@ finding that the four classes are \emph{not} separable by
 colour: with all twelve channel means confined to a narrow band, the
 discriminative signal lies in fine-grained texture and spatial structure.
 Aggressive photometric jitter would degrade precisely the cues the models
-depend on. This was confirmed empirically --- an early configuration using a
+depend on. This was confirmed empirically, an early configuration using a
 $\pm 50\%$ factor drove images to near-black or near-white and destroyed the
 texture detail entirely, so the factor was reduced.
 
@@ -657,8 +638,8 @@ The policy is fixed and shared rather than tuned per model. Individual
 architectures might well prefer slightly different settings, but allowing each
 member to tune augmentation independently would confound the comparison: a
 difference in final accuracy could then reflect a better augmentation search
-rather than a better architecture. Holding augmentation constant --- along with
-the data, split, external input contract, and evaluation procedure --- reduces
+rather than a better architecture. Holding augmentation constant along with
+the data, split, external input contract, and evaluation procedure reduces
 these sources of confounding and supports the architecture-focused comparison
 in Section~\ref{sec:results}.
 
@@ -702,15 +683,28 @@ feature abstraction increases, so the representation narrows toward the
 classifier like a pyramid. Table~\ref{tab:customcnn-arch} gives the structure as
 implemented.
 
-\begin{table}[H]
-\centering
-\caption{Custom CNN (Pyramidal Net) architecture, following \cite{Abdelmonem2026}.}
-\label{tab:customcnn-arch}
 \small
-\begin{tabular}{lll}
+\begin{longtable}{lll}
+\caption{Custom CNN (Pyramidal Net) architecture, following \cite{Abdelmonem2026}.}
+\label{tab:customcnn-arch}\\
+
 \toprule
 Stage & Configuration & Output \\
 \midrule
+\endfirsthead
+
+% Header repeated on later pages
+\toprule
+Stage & Configuration & Output \\
+\midrule
+\endhead
+
+% No continuation message at the bottom of a page
+\endfoot
+
+\bottomrule
+\endlastfoot
+
 Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB & $256^2 \times 3$ \\
 Augmentation & shared team policy, training only & $256^2 \times 3$ \\
 Rescaling & $\times \, 1/255$ & $256^2 \times 3$ \\
@@ -725,13 +719,14 @@ MaxPool 3 & $2\times2$, valid & $28^2 \times 64$ \\
 Flatten & --- & 50{,}176 \\
 Dense block & $512 \rightarrow 256 \rightarrow 64 \rightarrow 16$, ReLU & 16 \\
 Output & Dense, softmax & 4 \\
+
 \midrule
 \multicolumn{2}{l}{Parameters} & 26{,}512{,}212 total \\
 \multicolumn{2}{l}{Trainable / non-trainable} &
 26{,}511{,}444 / 768 (BatchNorm state) \\
-\bottomrule
-\end{tabular}
-\end{table}
+
+\end{longtable}
+\normalsize
 
 The flattened vector of 50,176 features matches the source paper exactly,
 confirming a faithful reproduction of the convolutional stack. All five
@@ -793,7 +788,7 @@ convolutional layers, leaving the dense head unregularised.
 
 Trained under the shared protocol at batch size 16 for 32 epochs, the model
 selected its best checkpoint at epoch 24 and achieved \textbf{84.50\% accuracy}
-and \textbf{0.8452 macro-$F_1$} on the held-out set --- the lowest of our five
+and \textbf{0.8452 macro-$F_1$} on the held-out set the lowest of our five
 approaches. The per-class breakdown localises the shortfall precisely:
 
 \begin{center}
@@ -817,7 +812,7 @@ Figure~\ref{fig:customcnn-cm} shows that this is not diffuse error but a single
 dominant confusion: \texttt{dense\_residential} is misclassified as
 \texttt{sparse\_residential} in a large fraction of cases, while
 \texttt{sparse\_residential} itself is recovered almost perfectly. The error is
-therefore \emph{asymmetric} --- the model under-predicts density rather than
+therefore \emph{asymmetric} meaning that the model under-predicts density rather than
 confusing the two classes symmetrically.
 
 \begin{figure}[htbp]
@@ -881,11 +876,18 @@ particular density boundary present in those 420 tuning images, and that
 boundary does not generalise.
 
 This is a concrete illustration of why Section~\ref{sec:splits} insists on a
-reserved held-out set. Had the tuning metrics been reported as final --- a
+reserved held-out set. Had the tuning metrics been reported as final; a
 natural mistake, since they are computed on data the model never received
-gradients from --- we would have overstated this model's performance by more
+gradients from which we would have overstated this model's performance by more
 than six points and, more seriously, drawn the wrong conclusion about which
 class remains unsolved.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{docs/figures/custom_cnn_curves.png}
+\caption{Custom CNN training curves.}
+\label{fig:customcnn-curves}
+\end{figure}
 
 The training curves (Figure~\ref{fig:customcnn-curves}) reveal two distinct
 phases. Through roughly the first fifteen epochs the model exhibits pronounced
@@ -898,24 +900,19 @@ first learning-rate reduction at epoch 16, the oscillation collapses and
 validation loss flattens. This timing is consistent with the scheduler helping
 stabilise training, although no scheduler or BatchNorm ablation was run.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{docs/figures/custom_cnn_curves.png}
-\caption{Custom CNN training curves. The dashed line marks epoch 24, the
+The dashed line marks epoch 24, the
 checkpoint selected on tuning accuracy. Early validation instability may
 reflect batch-normalisation statistics converging on a small tuning split; it
 subsides after the learning-rate scheduler first fires at epoch 16.
 The persistent gap between the training and validation curves after epoch 20
-indicates residual overfitting.}
-\label{fig:customcnn-curves}
-\end{figure}
+indicates residual overfitting.
 
 The second phase exposes the model's central limitation. Training accuracy
 continues to climb toward 0.99 while validation accuracy plateaus near 0.87 and
 validation loss ceases to improve, leaving a gap of roughly twelve points. The
 L2 term reduces this overfitting but does not eliminate it, which is
 unsurprising given that 25.7M of the 26.5M parameters reside in the first dense
-layer alone --- 97\% of the model's capacity is concentrated in a single layer
+layer alone, 97\% of the model's capacity is concentrated in a single layer
 fitted to 2,378 images.
 
 \subsubsection{Discussion}
@@ -924,15 +921,14 @@ Our result does not reproduce the ordering reported in \cite{Abdelmonem2026},
 where the custom architecture is presented as competitive with or superior to
 pretrained networks. On our partition it is decisively outperformed by all four
 transfer-learning approaches, including MobileNetV2, which reaches 0.9576
-macro-$F_1$ with 2.26M parameters --- roughly one twelfth of the custom model's
+macro-$F_1$ with 2.26M parameters which is roughly one twelfth of the custom model's
 capacity.
 
 One plausible explanation for the discrepancy is the granularity of the
 classification task rather than a defect in the architecture. The ten
 NWPU-RESISC45 categories
-used in the source study --- harbour, chaparral, tennis court, industrial area,
-parking lot, forest, beach, overpass, airplane, and baseball diamond --- are
-semantically and visually disjoint, and are separable on coarse cues such as
+used in the source study such as harbour, chaparral, tennis court, industrial area,
+parking lot, forest, beach, overpass, airplane, and baseball diamond are all semantically and visually disjoint, and are separable on coarse cues such as
 dominant colour, the presence of water, or large geometric structures. Features
 sufficient for those distinctions proved learnable from the roughly 490
 training images per class available under the source study's 70/15/15 split. Our
@@ -998,8 +994,7 @@ held-out set.
 
 \subsubsection{Results}
 
-Training used the shared protocol --- batch size 16, up to 32 epochs, early
-stopping with patience 20 --- and selected the best checkpoint at epoch 25.
+Training used the shared protocol(batch size 16, up to 32 epochs, early stopping with patience 20) and selected the best checkpoint at epoch 25.
 On the held-out set the model achieves \textbf{97.5\%
 accuracy} and \textbf{0.9750 macro-$F_1$}, the second strongest of our five
 approaches. Per-class $F_1$ ranges narrowly from 0.964
@@ -1051,8 +1046,7 @@ checkpoint to overfit the tuning split.}
 Repeating the tuning-versus-held-out comparison made for the custom CNN
 (Table~\ref{tab:resnet50-bias}) produces a very different picture. Every
 per-class difference is within $\pm 0.02$ $F_1$, and macro-$F_1$ falls by only
-0.006 ---
-roughly one tenth of the 0.063 drop seen in the from-scratch model.
+0.006 or roughly one tenth of the 0.063 drop seen in the from-scratch model.
 
 \begin{table}[H]
 \centering
@@ -1088,7 +1082,7 @@ Section~\ref{sec:comparative}.
 
 EfficientNet was designed around a different question from ResNet: once a
 competent convolutional network exists, how should additional computation be
-distributed between depth, width, and input resolution? Tan and Le
+distributed between depth, width, and input resolution. Tan and Le
 \cite{Tan2019} show that scaling only one dimension produces an unbalanced
 network and propose a compound coefficient that increases all three together.
 EfficientNet-B0 is the neural-architecture-search baseline from which the larger
@@ -1109,15 +1103,26 @@ Global average pooling produces a 1,280-dimensional representation, followed by
 the same dropout-plus-softmax head used for MobileNetV2. The complete
 configuration is shown in Table~\ref{tab:efficientnet-config}.
 
-\begin{table}[H]
-\centering
-\caption{EfficientNet-B0 model configuration.}
-\label{tab:efficientnet-config}
 \small
-\begin{tabular}{ll}
+\begin{longtable}{ll}
+\caption{EfficientNet-B0 model configuration.}
+\label{tab:efficientnet-config}\\
+
 \toprule
 Stage & Details \\
 \midrule
+\endfirsthead
+
+\toprule
+Stage & Details \\
+\midrule
+\endhead
+
+\endfoot
+
+\bottomrule
+\endlastfoot
+
 Input & $256 \times 256 \times 3$, raw $[0,255]$ RGB \\
 Augmentation & shared team policy, active during training only \\
 Preprocessing & Keras EfficientNet input handling inside the saved graph \\
@@ -1125,11 +1130,11 @@ Backbone & EfficientNet-B0, ImageNet weights, frozen, global average pooling \\
 Head & dropout 0.3 $\rightarrow$ dense softmax (4 units) \\
 Parameters & 4{,}054{,}695 total; 5{,}124 trainable \\
 Optimisation & Adam, learning rate $10^{-3}$, categorical cross-entropy \\
-\bottomrule
-\end{tabular}
-\end{table}
 
-Only 5,124 parameters --- 0.13\% of the network --- are updated. This is a
+\end{longtable}
+\normalsize
+
+Only 5,124 parameters or 0.13\% of the network are updated. This is a
 deliberate transfer-learning decision rather than a computational shortcut. The
 training subset has 2,378 images, too few to estimate four million backbone
 parameters reliably, while the ImageNet filters already encode edges, textures,
@@ -1491,15 +1496,14 @@ augmentation, so regularisation is applied identically to all five models.
 Second, the backbone is frozen: ViTs lack the inductive biases of
 convolutions and are known to need large datasets or heavy augmentation
 when trained or fine-tuned directly \cite{Dosovitskiy2021,Touvron2021}, so
-with only 2{,}378 images used for gradient updates we fit just the 3{,}076-parameter head
---- by far the smallest trainable footprint of our five approaches, which
+with only 2{,}378 images used for gradient updates we fit just the 3{,}076-parameter head which is by far the smallest trainable footprint of our five approaches, which
 limits its capacity to overfit the tuning split. Third, preprocessing scales
 pixels to $[-1,1]$ rather than applying ImageNet channel normalisation,
 matching how this checkpoint was pretrained.
 
 \paragraph{Choice of variant.}
-ViT-B/16 is the canonical member of the family --- the configuration the
-original paper itself headline-reports \cite{Dosovitskiy2021} --- and each
+ViT-B/16 is the canonical member of the family, the configuration the
+original paper itself headline-reports \cite{Dosovitskiy2021} and each
 alternative variant was excluded on grounds specific to this task. Patch-32
 variants retain a quarter of the tokens ($7\times7$ vs.\ $14\times14$ at
 224 pixels), discarding exactly the spatial resolution the fine-grained
@@ -1522,7 +1526,7 @@ assumed. The selected checkpoint was pretrained on ImageNet-21k and then
 finetuned on ImageNet-1k, following the AugReg release lineage
 \cite{Steiner2022}; we compared it against the raw ImageNet-21k
 weights (never finetuned to the 1k label space) under an otherwise identical
-protocol --- same seed, split, augmentation, and training flags. Our
+protocol: same seed, split, augmentation, and training flags. Our
 hypothesis was that the more generic 21k features would transfer better to
 aerial imagery, which is a clear domain shift from natural photos. To keep
 the held-out set untouched by model selection, the comparison used the
@@ -1548,7 +1552,7 @@ The hypothesis was cleanly falsified: the 1k-finetuned checkpoint scored
 10 vs.\ 31, with the 21k variant still improving when the 32-epoch budget
 ended). The explanation lies in how the features are used. Supervised
 finetuning on the 1k label space shapes the CLS embedding to be linearly
-separable --- precisely what a frozen-backbone setup with a softmax head
+separable which is precisely what a frozen-backbone setup with a softmax head
 requires, consistent with the strong dependence of penultimate-feature
 transfer on the pretraining objective observed by Kornblith et
 al.~\cite{Kornblith2019}. The raw 21k features are not poorer, but plausibly
@@ -1564,15 +1568,15 @@ set.
 
 \subsubsection{Results}
 
-Training used the shared protocol --- batch size 16, up to 32 epochs, early
-stopping with patience 20 --- and selected the best checkpoint at epoch 10,
+Training used the shared protocol (batch size 16, up to 32 epochs, early
+stopping with patience 20) and selected the best checkpoint at epoch 10,
 the earliest of our five approaches; training stopped early at epoch 30
 (best epoch plus patience). On the held-out set the model achieves
 \textbf{96.5\% accuracy} and \textbf{0.9652 macro-$F_1$}, third of the five
 approaches and within 1.25 points of the strongest. Per-class $F_1$ ranges
 from 0.951 (\texttt{sparse\_residential} and \texttt{dense\_residential})
 to 0.980 (\texttt{nursing\_home} and \texttt{coastal\_mansion}, the latter
-with perfect precision --- no image of any other class was ever predicted
+with perfect precision which no image of any other class was ever predicted
 as a coastal mansion). The full leaderboard is given in
 Section~\ref{sec:results}.
 
@@ -1701,7 +1705,7 @@ therefore be traced back to the exact code and data state that produced it.
 Two per-model extension points keep the protocol from being a straitjacket.
 A model may expose \texttt{configure(dropout, learning\_rate)} to accept
 head hyper-parameters from the command line, and \texttt{get\_callbacks()} to
-add callbacks justified by that member's own research --- the custom CNN uses
+add callbacks justified by that member's own research, for example the custom CNN uses
 this hook for the \texttt{ReduceLROnPlateau} schedule specified by its source
 paper (Section~\ref{sec:customcnn}). Neither hook can alter the data, the
 augmentation, or the evaluation.
@@ -1738,15 +1742,14 @@ per-model searches that would have confounded it.
 \subsection{Convergence}
 
 Because the epoch budget, batch size, seed, and data are identical across
-runs, convergence is compared directly in epochs --- a measure independent of
-each member's local machine --- using the best-epoch column of
+runs, convergence is compared directly in epochs:a measure independent of
+each member's local machine using the best-epoch column of
 Table~\ref{tab:leaderboard} and the per-model curves in Section~4
 (Figures~\ref{fig:customcnn-curves}, \ref{fig:resnet50-curves},
 and~\ref{fig:vit-curves}).
 
-The five runs span the full range of the budget. ViT locked on by epoch 10
---- its frozen CLS embedding is already organised for linear classification,
-so the 3,076-parameter head has little left to learn --- and was the only run
+The five runs span the full range of the budget. ViT locked on by epoch 10 where its frozen CLS embedding is already organised for linear classification,
+so the 3,076-parameter head has little left to learn and was the only run
 to trigger early stopping (halting at epoch 30, best epoch 10 plus
 patience 20). The custom CNN and ResNet-50 peaked mid-schedule (epochs 24
 and 25). MobileNetV2 and EfficientNet-B0 were still improving late: at best
@@ -1768,7 +1771,7 @@ per-class precision, recall, and $F_1$ with supports, their macro averages,
 and the confusion matrix (via scikit-learn), and writes them to a
 fixed-schema JSON file plus a rendered confusion-matrix PNG under
 \texttt{results/}. The fixed schema is what makes the cross-model tables in
-this section possible without any manual transcription --- every number below
+this section possible without any manual transcription; every number below
 is read directly from those artifacts.
 
 The held-out evaluation itself follows the protocol of
@@ -1780,7 +1783,7 @@ metrics were then compared post hoc, and the highest-scoring model was selected
 for the deployment demonstrator. Augmentation
 layers are inactive at inference, so models are scored on clean images.
 Because the held-out set is exactly balanced, macro recall coincides with
-accuracy --- a property visible in Table~\ref{tab:leaderboard} that doubles
+accuracy, a property visible in Table~\ref{tab:leaderboard} that doubles
 as a sanity check on the pipeline.
 
 \subsection{Results}
@@ -1841,10 +1844,10 @@ with the predictions recorded during exploratory analysis.
 the five models never predict this class for an image of any other class
 (perfect precision). \texttt{dense\_residential} is the weakest class for the
 custom CNN, ResNet-50, and EfficientNet-B0, and within a point of the
-minimum for ViT and MobileNetV2 --- for every model, the bottom of the table
+minimum for ViT and MobileNetV2. For every model, the bottom of the table
 is a residential-density or institutional-layout judgement, never the
 shoreline class. The custom CNN's failure is an extreme version of the same
-pattern rather than a different one --- its \texttt{dense\_residential} recall of 0.64 means 36 of
+pattern rather than a different one; its \texttt{dense\_residential} recall of 0.64 means 36 of
 100 dense scenes were misread, almost all as \texttt{sparse\_residential},
 while every transfer model keeps dense-residential recall at 0.92 or above.
 This pattern is consistent with frozen ImageNet features providing useful
@@ -1858,8 +1861,7 @@ In absolute terms the models misclassify 9 (EfficientNet-B0), 10 (ResNet-50),
 The gap between the top two is a single image, and a 95\% binomial confidence
 interval on 400 trials spans roughly $\pm 1.5$ accuracy points at the top of
 the table (and $\pm 3.5$ points at the custom CNN's level). The ordering
-among the four transfer models is therefore suggestive rather than settled
---- all four intervals overlap --- whereas the gap between any transfer model
+among the four transfer models is therefore suggestive rather than settled, all four intervals overlap whereas the gap between any transfer model
 and the from-scratch baseline is far outside any interval and is the one
 clearly separated result in this evaluation. This caveat
 is carried into the recommendation in Section~\ref{sec:discussion}.
@@ -1884,7 +1886,7 @@ from its capacity being in the wrong place: 97\% of its 26.5M parameters sit
 in a single dense layer fitted to a few thousand images, producing the
 largest train--validation gap of the study, the worst held-out accuracy
 (0.8450), a collapse on the density boundary (dense-residential recall
-0.64), and a 6.3-point gap between tuning and held-out macro-$F_1$ --- the
+0.64), and a 6.3-point gap between tuning and held-out macro-$F_1$ which was the
 least trustworthy validation signal of the five. It is also the only model
 whose early training was unstable (Figure~\ref{fig:customcnn-curves}).
 
@@ -1899,19 +1901,19 @@ pretrained CNNs it has the largest parameter count, for no measurable accuracy
 benefit over EfficientNet-B0; the custom CNN remains larger overall.
 
 \paragraph{EfficientNet-B0.}
-The best result of the study --- 0.9775 accuracy and macro-$F_1$ with only
-4.1M total parameters and 5,124 trainable --- and the only model to hold
+The best result of the study with a 0.9775 accuracy and macro-$F_1$ with only
+4.1M total parameters and 5,124 trainable and the only model to hold
 every class at $F_1 \geq 0.970$. Compound scaling's accuracy-per-parameter
 promise \cite{Tan2019} is borne out at the smallest scale of the family. Its
 hyper-parameters were also the most systematically chosen, via a
 one-factor-at-a-time suite (Section~\ref{sec:training}). Two caveats: its
 best epoch was the last epoch of the budget, so it is plausibly slightly
-undertrained, and its margin over ResNet-50 is one image --- a tie within
+undertrained, and its margin over ResNet-50 is one image; a tie within
 noise, not a demonstrated superiority.
 
 \paragraph{MobileNetV2.}
-MobileNetV2 represents the efficiency-oriented extreme: 2.3M parameters ---
-2.6\% of ViT's footprint ---
+MobileNetV2 represents the efficiency-oriented extreme: 2.3M parameters which is
+2.6\% of ViT's footprint yet
 still delivers 0.9575 accuracy, making it the best accuracy-per-parameter in
 the study and the natural choice if the classifier had to run on an edge
 device such as a drone or embedded mapping unit \cite{Sandler2018}. Its
@@ -1929,8 +1931,8 @@ fastest (best epoch 10), and its held-out macro-$F_1$ was 0.010 above its
 tuning value, so no positive tuning-to-held-out optimism was observed in this
 run. It also showed that frozen global self-attention can transfer to this
 aerial-imagery task. But at this dataset scale its costs are not repaid: 85.8M
-parameters --- by far the heaviest training and inference footprint of the
-study --- for an accuracy 1.0 point \emph{below} ResNet-50. In Pareto terms
+parameters, by far the heaviest training and inference footprint of the
+study for an accuracy 1.0 point \emph{below} ResNet-50. In Pareto terms
 ResNet-50 dominates it on both size and accuracy. The literature's caution
 that transformers typically require more data
 \cite{Shoaib2025} is thus refined by our result: the frozen ViT achieved 0.9650
@@ -1971,10 +1973,10 @@ custom CNN are each dominated by at least one other approach.}
 Figure~\ref{fig:pareto} plots accuracy against parameter count. Only two models
 sit on the Pareto frontier: MobileNetV2 (smallest) and EfficientNet-B0 (most
 accurate).
-ResNet-50 is dominated by EfficientNet-B0 --- more parameters for
-statistically indistinguishable accuracy --- and ViT is dominated by
+ResNet-50 is dominated by EfficientNet-B0, more parameters for
+statistically indistinguishable accuracy while ViT is dominated by
 ResNet-50 on both axes. The custom CNN is dominated by everything: more
-parameters than three of the four transfer models and 11--13 points less
+parameters than three of the four transfer models and 11-13 points less
 accuracy. For deployment scenarios in this study's range, the practical
 choices are therefore EfficientNet-B0 by default and MobileNetV2 when the size
 budget is severe.
@@ -2127,8 +2129,8 @@ against 0.40 rather than at 0.99.
 The model is loaded once and cached with Streamlit's
 \texttt{@st.cache\_resource} decorator, so the checkpoint is deserialised on
 first request rather than on every upload. Loading is wrapped in exception
-handling: if the checkpoint cannot be read --- most plausibly a Keras version
-mismatch --- the interface starts in a clearly labelled preview mode and
+handling: if the checkpoint cannot be read, most plausibly a Keras version
+mismatch or the interface starts in a clearly labelled preview mode and
 displays the underlying error rather than failing silently or crashing.
 
 \subsection{Design Decisions}
@@ -2197,7 +2199,7 @@ that the model served by Docker follows the same raw-input and fixed-class
 contracts used during evaluation.
 
 Two limitations should be acknowledged. First, the interface itself is not
-covered by automated tests --- verification is manual, through the running
+covered by automated tests, verification is manual, through the running
 container. Second, the service is a single-container demonstrator: it performs
 no batching, authentication, request logging, or horizontal scaling, and would
 require an orchestration layer and a proper inference server before production
@@ -2208,9 +2210,8 @@ the coursework requirement is a working containerised demonstrator.
 \label{sec:discussion}
 
 \paragraph{What this benchmark says about fine-grained aerial classification.}
-The headline finding is that four visually confusable residential categories
---- the deliberately fine-grained partition PatternNet was designed to
-produce \cite{Zhou2018} --- are solvable to 96--98\% accuracy by frozen
+The headline finding is that four visually confusable residential categories where the deliberately fine-grained partition PatternNet was designed to
+produce \cite{Zhou2018} are solvable to 96--98\% accuracy by frozen
 ImageNet features with a head of a few thousand parameters. No fine-tuning,
 no task-specific architecture, and no aggressive hyper-parameter search were
 needed to reach that level. The custom CNN scores about 13 macro-$F_1$ points
@@ -2229,7 +2230,7 @@ expected to be easy. The dense-versus-sparse boundary specifically accounts for
 exception, with most of its mistakes involving \texttt{nursing\_home}
 (Section~\ref{sec:comparative}). We read this less as a model deficiency than as a property of
 the label space: density is a continuous quantity that the benchmark
-discretises into two names, so scenes near the threshold may be ambiguous ---
+discretises into two names, so scenes near the threshold may be ambiguous since
 the dataset itself contains one image assigned to two classes
 (Section~2.5), evidence of at least one annotation conflict at this boundary.
 Modelling possible ambiguity through soft labels or ordinal density regression
@@ -2255,14 +2256,14 @@ the pinned environment, but exact cross-machine equivalence was not
 experimentally established. (ii) The
 400-image held-out set implies roughly $\pm 1.5$-point confidence intervals at
 the top of the leaderboard, so the ordering among the four transfer models is
-not statistically resolved --- only the transfer-versus-scratch gap is.
+not statistically resolved as only the transfer-versus-scratch gap is.
 (iii) All four backbones were fully frozen. This was a deliberate controlled
 variable, but it means we measured pretrained \emph{representations}, not the
 ceiling of each architecture under fine-tuning; EfficientNet-B0's best epoch
 landing on the final epoch of its budget likewise hints at headroom we did
 not spend. (iv) The augmentation policy, input resolution, and other shared
 settings were fixed for comparability rather than tuned per model, so each
-individual model is likely slightly below its own optimum --- the price of a
+individual model is likely slightly below its own optimum for the price of a
 fair comparison, paid knowingly. (v) The held-out leaderboard was used to
 select EfficientNet-B0 for deployment, and one held-out image was reused for
 the container demonstration. The reported leaderboard describes the five
@@ -2275,9 +2276,8 @@ estimate of the deployed selection procedure.
 \section{Individual Contributions}
 \label{sec:contributions}
 
-Each member owned one deep learning approach end-to-end --- implementation
-under the shared \texttt{build\_model} contract, experiments, final training
-run, results artifacts, figures, and the corresponding report subsection ---
+Each member owned one deep learning approach end-to-end implementation under the shared \texttt{build\_model} contract, experiments, final training
+run, results artifacts, figures, and the corresponding report subsection was
 developed on a dedicated branch and merged after review. Table~\ref{tab:members}
 summarises the ownership; the paragraphs below record each member's wider
 contributions to the shared infrastructure, analysis, deployment, and report.
@@ -2327,7 +2327,7 @@ accuracy-per-parameter analysis of the deployment-constrained design point.
 
 \paragraph{Kaiser Yee} implemented and trained the ViT-B/16 transfer model,
 including the input-resize fix required by ViT's fixed position-embedding
-table --- a major integration bug of the project --- and designed and
+table which was a major integration bug of the project and designed and
 ran the pretraining-source ablation (ImageNet-21k versus 1k-finetuned
 weights), the study's cleanest example of an experimentally falsified
 assumption.
@@ -2347,7 +2347,7 @@ initial containerised inference service.
 
 The lecture-level statement ``do not tune on your test set'' sounds like an
 instruction to be careful. The lasting lesson of this project is that
-carefulness does not scale across five people and dozens of runs --- the
+carefulness does not scale across five people and dozens of runs meaning the
 protection has to be built into the code. We designed the pipeline so that
 the held-out loader is a separate function behind an explicit flag, never
 passed to \texttt{model.fit} and never visible to a callback. This separation
@@ -2356,8 +2356,8 @@ evaluation flag means the protocol still depends on disciplined use.
 
 The payoff was concrete. Our custom CNN's tuning macro-$F_1$ of 0.908
 overstated its true held-out 0.845 by more than six points, with the entire
-gap concentrated in one class. Had we reported tuning metrics --- a natural
-mistake, since the model never received gradients from those images --- we
+gap concentrated in one class. Had we reported tuning metrics which was a natural
+mistake, since the model never received gradients from those images we
 would have published the wrong number \emph{and} the wrong conclusion about
 which class was solved. Observing smaller or positive held-out-minus-tuning
 gaps for the other four models made the abstract warning about validation
@@ -2403,7 +2403,7 @@ not survive contact with four confusable residential classes. Reproducing a
 paper faithfully and then explaining the divergence taught us more than
 either step alone. Third, assumptions are cheap to test and often wrong: we
 expected raw ImageNet-21k features to transfer better to aerial imagery than
-1k-finetuned ones, ran the ablation, and were cleanly refuted --- in a
+1k-finetuned ones, ran the ablation, and were cleanly refuted in a
 frozen-backbone regime, the linear separability that supervised finetuning
 imposes matters more than feature generality.
 
@@ -2415,8 +2415,8 @@ $256 \times 256$ inputs because convolution weights are position-agnostic,
 but ViT's fixed position-embedding table made the same mismatch a hard error,
 forcing us to understand \emph{why} the two families differ rather than just
 resizing and moving on. The augmentation-ordering bug was subtler: placing
-rescaling before the brightness layer --- which is configured for a
-$[0,255]$ range --- silently saturated images to black, a reminder that
+rescaling before the brightness layer which is configured for a
+$[0,255]$ range silently saturated images to black, a reminder that
 numerically valid pipelines can still be semantically wrong, and that
 augmented batches should be visualised, not assumed. An early $\pm 50\%$
 photometric jitter that destroyed the very texture cues our EDA said the task
@@ -2435,7 +2435,7 @@ again, we would write those tests first, not midway.
 \subsection{What We Would Do Differently}
 
 Beyond starting with the tests, we would budget training time by
-architecture rather than uniformly --- EfficientNet-B0's best epoch landing
+architecture rather than uniformly: EfficientNet-B0's best epoch landing
 on its final epoch shows a flat 32-epoch cap does not fit every model
 equally. We would also schedule multiple seeds from the outset; single-run
 results were the right trade under our compute constraints, but the
@@ -2471,7 +2471,7 @@ measure overlap and define any voting or probability-averaging rule.
 Test-time augmentation is a natural companion on aerial data: since flips
 and rotations are label-preserving here, averaging predictions over the
 dihedral group costs only inference time and no retraining. Both must be
-designed \emph{before} evaluation on a fresh held-out set --- assembling an
+designed \emph{before} evaluation on a fresh held-out set, assembling an
 ensemble to fix aggregate errors already observed in \texttt{val 23} would
 reuse that set for selection.
 
@@ -2488,8 +2488,8 @@ Grad-CAM on the convolutional models and attention-map visualisation on ViT
 would test our standing interpretation directly: that
 \texttt{coastal\_mansion} is recognised by shoreline, and that dense/sparse
 errors occur on scenes near the density threshold. Confirming that the
-models attend to buildings and spacing --- rather than to spurious cues such
-as image brightness --- would also strengthen the case for deploying the
+models attend to buildings and spacing rather than to spurious cues such
+as image brightness would also strengthen the case for deploying the
 classifier on imagery from other regions.
 
 \paragraph{Calibration and abstention.}
@@ -2497,15 +2497,15 @@ The inference interface reports uncalibrated softmax scores; we did not test
 whether a score of 0.9 corresponds to 90\% empirical correctness. Fitting any
 temperature parameter on tuning predictions, evaluating calibration on fresh
 held-out data, and adding an
-``uncertain --- refer to a human'' band for borderline density cases would
+``uncertain: refer to a human'' band for borderline density cases would
 make the score operationally meaningful, which matters for the
 mapping and planning applications that motivated the task.
 
 \paragraph{Hardened serving path.}
 The Streamlit UI suits demonstration; a production path would add a FastAPI
 REST endpoint alongside it (machine-to-machine JSON inference), container
-build-and-health checks in CI, and a quantised or TensorFlow-Lite export ---
-most naturally of MobileNetV2 --- for on-device inference, subject to
+build-and-health checks in CI, and a quantised or TensorFlow-Lite export,
+most naturally of MobileNetV2 for on-device inference, subject to
 verifying metric parity with the trained checkpoint.
 
 \paragraph{Scaling beyond the partition.}
